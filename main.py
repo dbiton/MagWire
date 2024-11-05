@@ -48,7 +48,7 @@ def create_wire():
     return wire_segments
 
 
-def create_collision(angles = [30, 0, 60]):
+def create_collision(angles = [0, 225]):
     n = len(angles)
     square_size = 200
     half_size = square_size // 2
@@ -70,10 +70,11 @@ def create_collision(angles = [30, 0, 60]):
       branch_polygon = shapely.Polygon([
           (center_x - road_width, center_y + road_length),
           (center_x + road_width, center_y + road_length),
-          (center_x + road_width, center_y - road_length),
-          (center_x - road_width, center_y - road_length),    
+          (center_x + road_width, center_y - road_length / 2),
+          (center_x - road_width, center_y - road_length / 2),    
         ])
-      branch_polygon = shapely.affinity.rotate(branch_polygon, angle, 'center')
+      origin = (center_x, center_y)
+      branch_polygon = shapely.affinity.rotate(branch_polygon, angle, origin)
       collision_polygon = collision_polygon.difference(branch_polygon)
 
     polys = []
@@ -248,7 +249,7 @@ static_shape = pymunk.Circle(static_body, 20)
 static_shape.elasticity = 0.5
 space.add(static_body, static_shape)
 
-# create_collision()
+create_collision()
 create_goal(space, 400, 250)
 wire_segments = create_wire()
 
@@ -270,7 +271,7 @@ while running:
 
     force = magnetic_force(moving_body, m0, static_body, m1)
     moving_body.apply_force_at_world_point(force, moving_body.position)
-    static_body.angle += 2/60.0 
+    # static_body.angle += 2/60.0 
 
     # Step the simulation
     space.step(1 / 60.0)
@@ -278,7 +279,7 @@ while running:
     # Extend wire at regular intervals
     time_since_last_extend += 1 / 60.0
     if time_since_last_extend >= extend_interval:
-        # extend_wire_from_anchor(wire_segments)
+        extend_wire_from_anchor(wire_segments)
         time_since_last_extend = 0.0
 
     # Clear screen
