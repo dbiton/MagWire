@@ -250,7 +250,7 @@ static_shape.elasticity = 0.5
 space.add(static_body, static_shape)
 
 create_collision()
-create_goal(space, 400, 250)
+create_goal(space, 450, 150)
 wire_segments = create_wire()
 
 # Simulation loop
