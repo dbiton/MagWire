@@ -147,10 +147,12 @@ def create_collision(angles=[0, 225]):
         space.add(pymunk_shape)
 
 
-def create_goal(space, x, y, size=20):
+def create_goal(space, pos, size=20):
     # Define line thickness and color
     color = (255, 0, 0, 255)  # Red color
     thickness = 5
+
+    x, y = pos[0], pos[1]
 
     # Calculate the end points of the two lines forming the "X"
     half_size = size / 2
@@ -231,7 +233,8 @@ def magnetic_force(
     return force_vec
 
 
-def simulate(wire_speed: float, magnet_pos: Tuple[float, float]) -> Tuple[float, float]:
+def simulate(wire_speed: float, magnet_pos: pymunk.Vec2d, goal_pos: pymunk.Vec2d) -> Tuple[float, float]:
+    time_simulate = 5
     # Initialize pygame
     pygame.init()
     screen = pygame.display.set_mode((600, 600))
@@ -239,23 +242,25 @@ def simulate(wire_speed: float, magnet_pos: Tuple[float, float]) -> Tuple[float,
     draw_options = pymunk.pygame_util.DrawOptions(screen)
 
     create_collision()
-    create_goal(space, 450, 150)
+    create_goal(space, goal_pos)
     wire_segments = create_wire()
 
     # Simulation loop
     running = True
     extend_interval = 2.0  # Time in seconds between wire extensions
     time_since_last_extend = 0.0
+    
+    static_body.position = magnet_pos
 
-    anchor_body.velocity = (0, -30)
+    anchor_body.velocity = (0, -wire_speed)
 
-    while running:
+    while time_simulate > 0:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
         # Calculate magnetic force
-        r = np.array(moving_body.position) - pos_static
+        r = np.array(moving_body.position) - static_body.position
 
         m0 = pymunk.Vec2d(
             2000000000, 0.0
@@ -270,6 +275,8 @@ def simulate(wire_speed: float, magnet_pos: Tuple[float, float]) -> Tuple[float,
 
         # Step the simulation
         space.step(1 / 60.0)
+
+        time_simulate -= 1 / 60
 
         # Extend wire at regular intervals
         time_since_last_extend += 1 / 60.0
