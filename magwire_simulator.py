@@ -12,8 +12,8 @@ space.gravity = (0, 0)
 
 # Define constants
 magnet_mass = 1.0
-wire_rigidity = 1000
-wire_length = 60
+wire_rigidity = 10000
+wire_length = 200
 segment_length = 5
 num_segments = wire_length // segment_length
 
@@ -21,16 +21,24 @@ num_segments = wire_length // segment_length
 pos_static = (500, 300)
 
 # Anchor point
-anchor_point = (300, 400)
+anchor_point = (300, 600)
 
 # Magnetic constants
 mu_0 = 4 * np.pi * 10**-7
 magnetic_moment_static = (0, 1)
 magnetic_moment_moving = (0, 1)
 
+
+# create the anchor
+anchor_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+anchor_body.position = anchor_point[0], anchor_point[1]
+moving_shape = pymunk.Circle(anchor_body, 5)
+moving_shape.elasticity = 0.5
+space.add(anchor_body, moving_shape)
+
 # Create the magwire magnet
 moving_body = pymunk.Body(magnet_mass, float("inf"))
-moving_body.position = anchor_point[0] + wire_length, anchor_point[1]
+moving_body.position = anchor_point[0], anchor_point[1] - wire_length
 moving_shape = pymunk.Circle(moving_body, 10)
 moving_shape.elasticity = 0.5
 space.add(moving_body, moving_shape)
@@ -42,18 +50,22 @@ static_shape = pymunk.Circle(static_body, 20)
 static_shape.elasticity = 0.5
 space.add(static_body, static_shape)
 
+
 def create_wire():
     # Create the wire as a series of connected segments
     wire_segments = []
     previous_body = None
     for i in range(num_segments):
         segment_body = pymunk.Body(mass=0.1, moment=10)
+
+        # Position each segment incrementally downward, making it bottom-up
         segment_body.position = (
-            anchor_point[0] + (i + 1) * segment_length,
-            anchor_point[1],
+            anchor_point[0],  # x-coordinate remains constant
+            anchor_point[1] - (i + 1) * segment_length,  # y-coordinate decrements
         )
+
         segment_shape = pymunk.Segment(
-            segment_body, (0, 0), (segment_length, 0), segment_length / 32
+            segment_body, (0, 0), (0, -segment_length), segment_length / 32
         )
         segment_shape.elasticity = 0.5
         wire_segments.append(segment_body)
@@ -62,30 +74,36 @@ def create_wire():
         if previous_body is not None:
             # Pin joint for the segment connection
             joint = pymunk.PinJoint(
-                previous_body, segment_body, (segment_length, 0), (0, 0)
+                previous_body, segment_body, (0, -segment_length), (0, 0)
             )
             space.add(joint)
 
             # Add a rotary spring for bending stiffness
             spring = pymunk.DampedRotarySpring(
-                previous_body, segment_body, rest_angle=0, stiffness=wire_rigidity, damping=10
+                previous_body,
+                segment_body,
+                rest_angle=0,
+                stiffness=wire_rigidity,
+                damping=10,
             )
             space.add(spring)
 
         previous_body = segment_body
 
     # Connect the first segment to the anchor point
-    anchor_joint = pymunk.PinJoint(space.static_body, wire_segments[0], anchor_point, (0, 0))
+    anchor_joint = pymunk.PinJoint(anchor_body, wire_segments[0], (0, 0), (0, 0))
     space.add(anchor_joint)
 
     # Connect the last wire segment to the moving magnet
-    end_joint = pymunk.PinJoint(previous_body, moving_body, (segment_length, 0), (0, 0))
+    end_joint = pymunk.PinJoint(
+        previous_body, moving_body, (0, -segment_length), (0, 0)
+    )
     space.add(end_joint)
 
     return wire_segments
 
 
-def create_collision(angles = [0, 225]):
+def create_collision(angles=[0, 225]):
     n = len(angles)
     square_size = 200
     half_size = square_size // 2
@@ -94,25 +112,29 @@ def create_collision(angles = [0, 225]):
     road_width = 20  # Width of the road and branches
     road_length = 400
 
-    square_polygon = shapely.Polygon([
-        (center_x - square_size, center_y + square_size),
-        (center_x + square_size // 1.5, center_y + square_size),
-        (center_x + square_size // 1.5, center_y - square_size),
-        (center_x - square_size, center_y - square_size),    
-      ])
-    
+    square_polygon = shapely.Polygon(
+        [
+            (center_x - square_size, center_y + square_size),
+            (center_x + square_size // 1.5, center_y + square_size),
+            (center_x + square_size // 1.5, center_y - square_size),
+            (center_x - square_size, center_y - square_size),
+        ]
+    )
+
     collision_polygon = square_polygon
 
     for angle in angles:
-      branch_polygon = shapely.Polygon([
-          (center_x - road_width, center_y + road_length),
-          (center_x + road_width, center_y + road_length),
-          (center_x + road_width, center_y - road_length / 2),
-          (center_x - road_width, center_y - road_length / 2),    
-        ])
-      origin = (center_x, center_y)
-      branch_polygon = shapely.affinity.rotate(branch_polygon, angle, origin)
-      collision_polygon = collision_polygon.difference(branch_polygon)
+        branch_polygon = shapely.Polygon(
+            [
+                (center_x - road_width, center_y + road_length),
+                (center_x + road_width, center_y + road_length),
+                (center_x + road_width, center_y - road_length / 2),
+                (center_x - road_width, center_y - road_length / 2),
+            ]
+        )
+        origin = (center_x, center_y)
+        branch_polygon = shapely.affinity.rotate(branch_polygon, angle, origin)
+        collision_polygon = collision_polygon.difference(branch_polygon)
 
     polys = []
     if isinstance(collision_polygon, shapely.Polygon):
@@ -123,6 +145,7 @@ def create_collision(angles = [0, 225]):
         vertices = list(p.exterior.coords)
         pymunk_shape = pymunk.Poly(space.static_body, vertices)
         space.add(pymunk_shape)
+
 
 def create_goal(space, x, y, size=20):
     # Define line thickness and color
@@ -153,7 +176,9 @@ def create_goal(space, x, y, size=20):
     return line1, line2  # Return the segments for further customization if needed
 
 
-def magnetic_force(body0: pymunk.Body, m0: pymunk.Vec2d, body1: pymunk.Body, m1: pymunk.Vec2d):
+def magnetic_force(
+    body0: pymunk.Body, m0: pymunk.Vec2d, body1: pymunk.Body, m1: pymunk.Vec2d
+):
     """
     Calculate the 2D magnetic force between two magnetic dipoles in pymunk.
 
@@ -205,6 +230,7 @@ def magnetic_force(body0: pymunk.Body, m0: pymunk.Vec2d, body1: pymunk.Body, m1:
     force_vec = pymunk.Vec2d(force_np[0], force_np[1])
     return force_vec
 
+
 def simulate(wire_speed: float, magnet_pos: Tuple[float, float]) -> Tuple[float, float]:
     # Initialize pygame
     pygame.init()
@@ -221,6 +247,8 @@ def simulate(wire_speed: float, magnet_pos: Tuple[float, float]) -> Tuple[float,
     extend_interval = 2.0  # Time in seconds between wire extensions
     time_since_last_extend = 0.0
 
+    anchor_body.velocity = (0, -30)
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -229,16 +257,20 @@ def simulate(wire_speed: float, magnet_pos: Tuple[float, float]) -> Tuple[float,
         # Calculate magnetic force
         r = np.array(moving_body.position) - pos_static
 
-        m0 = pymunk.Vec2d(2000000000, 0.0)  # Magnetic moment of body0 in the x direction
-        m1 = pymunk.Vec2d(0.0, 2000000000)  # Magnetic moment of body1 in the y direction
+        m0 = pymunk.Vec2d(
+            2000000000, 0.0
+        )  # Magnetic moment of body0 in the x direction
+        m1 = pymunk.Vec2d(
+            0.0, 2000000000
+        )  # Magnetic moment of body1 in the y direction
 
         force = magnetic_force(moving_body, m0, static_body, m1)
         moving_body.apply_force_at_world_point(force, moving_body.position)
-        # static_body.angle += 2/60.0 
+        # static_body.angle += 2/60.0
 
         # Step the simulation
         space.step(1 / 60.0)
-        
+
         # Extend wire at regular intervals
         time_since_last_extend += 1 / 60.0
         if time_since_last_extend >= extend_interval:
