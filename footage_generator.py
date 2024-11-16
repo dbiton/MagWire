@@ -25,7 +25,7 @@ center_x, center_y = (width // 2), (height // 2)  # center of the screen
 angle = 0  # initial angle
 
 # Set the duration of the animation (in seconds)
-duration = 10
+duration = 100
 start_time = time.time()
 
 # Grid parameters
@@ -38,6 +38,9 @@ corners = [
     (margin, height - margin),  # bottom-left corner
     (width - margin, height - margin)  # bottom-right corner
 ]
+
+radius = 200
+degrees_per_second = 60
 
 # Animation loop
 running = True
@@ -55,14 +58,14 @@ while running:
         pygame.draw.circle(screen, blue, corner, 5)
 
     # Use a combination of trig functions to create odd motion
-    x = center_x + 100 * math.sin(0.05 * angle) + 80 * math.cos(0.2 * angle)
-    y = center_y + 100 * math.cos(0.05 * angle) + 80 * math.sin(0.1 * angle)
+    x = center_x + radius * math.sin(math.radians(angle))
+    y = center_y + radius * math.cos(math.radians(angle))
 
     # Draw the red dot
     pygame.draw.circle(screen, red, (int(x), int(y)), 10)
 
     # Increment the angle to move the dot
-    angle += 1
+    angle += degrees_per_second / 60
     if angle >= 360:
         angle = 0
 
