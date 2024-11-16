@@ -9,7 +9,7 @@ pygame.init()
 width, height = 600, 600
 margin = 50  # Margin to make sure the corners are visible
 screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Red Dot Moving in Circle with Green Grid and Blue Corners")
+pygame.display.set_caption("Red Dot Moving in Odd Pattern with Green Grid and Blue Corners")
 
 # Colors
 white = (255, 255, 255)
@@ -20,9 +20,8 @@ red = (255, 0, 0)
 # Clock for controlling the frame rate
 clock = pygame.time.Clock()
 
-# Circle parameters
-center_x, center_y = (width // 2), (height // 2)  # center of the circle
-radius = 200  # radius of the circle
+# Circle parameters (can be ignored since we're not using a circle anymore)
+center_x, center_y = (width // 2), (height // 2)  # center of the screen
 angle = 0  # initial angle
 
 # Set the duration of the animation (in seconds)
@@ -30,7 +29,7 @@ duration = 10
 start_time = time.time()
 
 # Grid parameters
-grid_size = 25  # distance between grid lines
+grid_size = 50  # distance between grid lines
 
 # Corners (with margin)
 corners = [
@@ -55,10 +54,10 @@ while running:
     for corner in corners:
         pygame.draw.circle(screen, blue, corner, 5)
 
-    # Calculate the x, y position of the red dot, offset by the margin
-    x = center_x + radius * math.cos(math.radians(angle))
-    y = center_y + radius * math.sin(math.radians(angle))
-    
+    # Use a combination of trig functions to create odd motion
+    x = center_x + 100 * math.sin(0.05 * angle) + 80 * math.cos(0.2 * angle)
+    y = center_y + 100 * math.cos(0.05 * angle) + 80 * math.sin(0.1 * angle)
+
     # Draw the red dot
     pygame.draw.circle(screen, red, (int(x), int(y)), 10)
 
