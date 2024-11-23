@@ -49,20 +49,20 @@ while running:
     
     # Draw grid
     for x in range(margin, width - margin, grid_size):
-        pygame.draw.line(screen, green, (x, margin), (x, height - margin))  # vertical lines
+        pygame.draw.line(screen, blue, (x, margin), (x, height - margin))  # vertical lines
     for y in range(margin, height - margin, grid_size):
-        pygame.draw.line(screen, green, (margin, y), (width - margin, y))  # horizontal lines
+        pygame.draw.line(screen, blue, (margin, y), (width - margin, y))  # horizontal lines
     
     # Draw blue dots on the corners
     for corner in corners:
-        pygame.draw.circle(screen, blue, corner, 5)
+        pygame.draw.circle(screen, green, corner, 15)
 
     # Use a combination of trig functions to create odd motion
     x = center_x + radius * math.sin(math.radians(angle))
     y = center_y + radius * math.cos(math.radians(angle))
 
     # Draw the red dot
-    pygame.draw.circle(screen, red, (int(x), int(y)), 10)
+    pygame.draw.circle(screen, red, (int(x), int(y)), 15)
 
     # Increment the angle to move the dot
     angle += degrees_per_second / 60
