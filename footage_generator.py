@@ -6,9 +6,9 @@ import time
 pygame.init()
 
 # Screen dimensions with margin
-width, height = 600, 600
+width, height = 1400, 800
 margin = 50  # Margin to make sure the corners are visible
-screen = pygame.display.set_mode((width, height))
+screen = pygame.display.set_mode((width, height), pygame.NOFRAME)
 pygame.display.set_caption("Red Dot Moving in Odd Pattern with Green Grid and Blue Corners")
 
 # Colors
@@ -25,7 +25,7 @@ center_x, center_y = (width // 2), (height // 2)  # center of the screen
 angle = 0  # initial angle
 
 # Set the duration of the animation (in seconds)
-duration = 100
+duration = 10000
 start_time = time.time()
 
 # Grid parameters
