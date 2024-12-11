@@ -2,7 +2,6 @@ import numpy as np
 import pymunk
 
 from magwire_simulator import simulate
-from model import Model
 
 def evaluate(goal_pos: pymunk.Vec2d, magnet_pos: pymunk.Vec2d, wire_speed: float) -> float:
   end_position = simulate(wire_speed, magnet_pos, goal_pos)

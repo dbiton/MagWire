@@ -106,9 +106,8 @@ def map_point_to_normalized_space(rect_corners, point):
 def parse_video(video_path = 'data/28.11.24/robot_footage.mp4'):
     cap = cv2.VideoCapture(video_path)
     frame_rate = cap.get(cv2.CAP_PROP_FPS)
-    phase = 4.402165325530831
-    
     delta_time = 0
+    wire_positions = []
     while True:
         ret, frame = cap.read()
         
@@ -117,75 +116,24 @@ def parse_video(video_path = 'data/28.11.24/robot_footage.mp4'):
 
         wire_end = detect_wire(frame)
         corners = detect_corners(frame)
-
-        for corner in corners:
-            # Create a square around the red circle
-            center_x, center_y, radius = corner
-            top_left = (center_x - radius, center_y - radius)
-            bottom_right = (center_x + radius, center_y + radius)
-
-            # Draw the square (using a rectangle around the circle)
-            cv2.rectangle(frame, top_left, bottom_right, (255, 0, 255), 2)  # Purple squares for corners 
-        
-        if len(corners) == 4:
+        if len(corners) == 4 and wire_end:
             points = np.array([[x,y] for x, y, _ in corners])
             centroid = np.mean(points, axis=0)
             angles = np.arctan2(points[:, 1] - centroid[1], points[:, 0] - centroid[0])
             sorted_points = points[np.argsort(angles)]
             sorted_points = sorted_points.reshape((-1, 1, 2))
-            cv2.polylines(frame, [sorted_points], isClosed=True, color=(255, 255, 0), thickness=2)
-        
-        if wire_end:
-            # Create a square around the red circle
-            center_x, center_y, radius = wire_end
-            top_left = (center_x - radius, center_y - radius)
-            bottom_right = (center_x + radius, center_y + radius)
-
-            # Draw the square (using a rectangle around the circle)
-            cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)  # Green square for wire
-        
-        delta_time += 1 / frame_rate
-        timer_text = f"{int(delta_time // 60):02}:{int(delta_time % 60):02}"
-        # Add the timer text to the frame
-        cv2.putText(
-            frame,                        # Frame
-            timer_text,                   # Text to display
-            (10, 100),                     # Position (x, y)
-            cv2.FONT_HERSHEY_SIMPLEX,     # Font
-            0.5,                            # Font scale
-            (0, 255, 0),                  # Color (BGR - green)
-            2,                            # Thickness
-            cv2.LINE_AA                   # Line type
-        )
-        
-        pred_y = -1
-        pred_x = -1
-        if len(corners) == 4 and wire_end:
             wire_end_pos = wire_end[0], wire_end[1]
             norm_pred_x, norm_pred_y = map_point_to_normalized_space(sorted_points, wire_end_pos)
             pred_x = norm_pred_x * width
             pred_y = norm_pred_y * height
-
-        pred_pos_text = f"PRED: ({round(pred_x, 2)},{round(pred_y,2)})"
-        cv2.putText(
-            frame,                        # Frame
-            pred_pos_text,                   # Text to display
-            (10, 125),                     # Position (x, y)
-            cv2.FONT_HERSHEY_SIMPLEX,     # Font
-            0.5,                            # Font scale
-            (0, 255, 0),                  # Color (BGR - green)
-            2,                            # Thickness
-            cv2.LINE_AA                   # Line type
-        )
-        
-        # Show the frame with the detected red circle and square
-        cv2.imshow('Red Circle with Square', frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            wire_positions.append({
+                "time": delta_time, 
+                "pos": [pred_x, pred_y]
+            })
+            
+        delta_time += 1 / frame_rate
 
     # Release the video capture object and close any open windows
     cap.release()
     cv2.destroyAllWindows()
-
-parse_video()
+    return wire_positions
