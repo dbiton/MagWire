@@ -44,7 +44,7 @@ def plot_specgram(data, beep_interval=[]):
     plt.ylim(0, 2000)  # Focus on frequencies up to 2000 Hz
     plt.show()
 
-def find_beeps(data):
+def find_beeps(data, fs):
     # Create the spectrogram
     f, t, Sxx = spectrogram(data, fs, nperseg=1024)
 
@@ -118,16 +118,18 @@ def find_beeps(data):
     # plt.show()
     return intervals
 
-# Step 1: Extract audio from the MP4 video
-video_file = "data\\28.11.24\\robot_footage.mp4"
-audio_file = "audio.wav"
+def detect_beeps():
+    video_file = "data\\28.11.24\\robot_footage.mp4"
+    audio_file = "audio.wav"
 
-generate_wav(video_file, audio_file)
+    generate_wav(video_file, audio_file)
 
-# Step 2: Load the extracted audio
-fs, data = wavfile.read(audio_file)  # fs: sampling rate, data: audio signal
-if data.ndim > 1:  # If stereo, convert to mono
-    data = data.mean(axis=1)
+    fs, data = wavfile.read(audio_file)  # fs: sampling rate, data: audio signal
+    if data.ndim > 1:  # If stereo, convert to mono
+        data = data.mean(axis=1)
 
-beeps = find_beeps(data)
-plot_specgram(data, beeps)
+    beeps = find_beeps(data, fs)
+
+    return beeps
+
+#plot_specgram(data, beeps)
