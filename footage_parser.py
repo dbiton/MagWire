@@ -1,6 +1,7 @@
 from itertools import combinations
 import math
 import time
+from typing import List
 import cv2
 import numpy as np
 
@@ -102,38 +103,94 @@ def map_point_to_normalized_space(rect_corners, point):
     u, v = mapped[0] / mapped[2], mapped[1] / mapped[2]
     return u, v
 
+def wire_screenspace_to_gridspace(corners, wire_end):
+    if len(corners) == 4 and wire_end:
+        points = np.array([[x,y] for x, y, _ in corners])
+        centroid = np.mean(points, axis=0)
+        angles = np.arctan2(points[:, 1] - centroid[1], points[:, 0] - centroid[0])
+        sorted_points = points[np.argsort(angles)]
+        sorted_points = sorted_points.reshape((-1, 1, 2))
+        wire_end_pos = wire_end[0], wire_end[1]
+        norm_pred_x, norm_pred_y = map_point_to_normalized_space(sorted_points, wire_end_pos)
+        pred_x = norm_pred_x * width
+        pred_y = norm_pred_y * height
+        return [pred_x, pred_y]
+    return None
 
-def parse_video(video_path = 'data/28.11.24/robot_footage.mp4'):
+def parse_video(video_path='data/28.11.24/robot_footage.mp4', show=False) -> List[dict]:
     cap = cv2.VideoCapture(video_path)
     frame_rate = cap.get(cv2.CAP_PROP_FPS)
     delta_time = 0
     wire_positions = []
     while True:
         ret, frame = cap.read()
-        
         if not ret:
             break  # End of video
-
         wire_end = detect_wire(frame)
         corners = detect_corners(frame)
-        if len(corners) == 4 and wire_end:
-            points = np.array([[x,y] for x, y, _ in corners])
-            centroid = np.mean(points, axis=0)
-            angles = np.arctan2(points[:, 1] - centroid[1], points[:, 0] - centroid[0])
-            sorted_points = points[np.argsort(angles)]
-            sorted_points = sorted_points.reshape((-1, 1, 2))
-            wire_end_pos = wire_end[0], wire_end[1]
-            norm_pred_x, norm_pred_y = map_point_to_normalized_space(sorted_points, wire_end_pos)
-            pred_x = norm_pred_x * width
-            pred_y = norm_pred_y * height
+        pos = wire_screenspace_to_gridspace(corners, wire_end)
+        if pos:
             wire_positions.append({
-                "time": delta_time, 
-                "pos": [pred_x, pred_y]
+                "time": delta_time,
+                "pos": pos
             })
-            
         delta_time += 1 / frame_rate
+        if show:
+            if pos:
+                cv2.putText(
+                    frame,                        # Frame
+                    f"{float(round(pos[0])), float(round(pos[1]))}",
+                    (10, 100),                    # Position (x, y)
+                    cv2.FONT_HERSHEY_SIMPLEX,     # Font
+                    1,                            # Font scale
+                    (0, 255, 0),                  # Color (BGR - green)
+                    2,                            # Thickness
+                    cv2.LINE_AA                   # Line type
+                )
+                
+            timer_text = f"{int(delta_time // 60):02}:{int(delta_time % 60):02}"
+            
+            for corner in corners:
+                center_x, center_y, radius = corner
+                top_left = (center_x - radius, center_y - radius)
+                bottom_right = (center_x + radius, center_y + radius)
+                cv2.rectangle(frame, top_left, bottom_right, (255, 0, 255), 2)
+            
+            if wire_end:
+                # Create a square around the red circle
+                center_x, center_y, radius = wire_end
+                top_left = (center_x - radius, center_y - radius)
+                bottom_right = (center_x + radius, center_y + radius)
+
+                # Draw the square (using a rectangle around the circle)
+                cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)  # Green square
+            
+            if len(corners) == 4:
+                points = np.array([[x,y] for x, y, _ in corners])
+                centroid = np.mean(points, axis=0)
+                angles = np.arctan2(points[:, 1] - centroid[1], points[:, 0] - centroid[0])
+                sorted_points = points[np.argsort(angles)]
+                sorted_points = sorted_points.reshape((-1, 1, 2))
+                cv2.polylines(frame, [sorted_points], isClosed=True, color=(255, 255, 0), thickness=2)
+            
+            cv2.putText(
+                frame,                        # Frame
+                timer_text,                   # Text to display
+                (10, 50),                     # Position (x, y)
+                cv2.FONT_HERSHEY_SIMPLEX,     # Font
+                1,                            # Font scale
+                (0, 255, 0),                  # Color (BGR - green)
+                2,                            # Thickness
+                cv2.LINE_AA                   # Line type
+            )
+            
+            cv2.imshow('Footage', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
     # Release the video capture object and close any open windows
     cap.release()
     cv2.destroyAllWindows()
     return wire_positions
+
+parse_video()

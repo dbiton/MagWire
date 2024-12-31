@@ -42,7 +42,7 @@ def plot_specgram(data, beep_interval=[]):
         plt.axvspan(start, end, color="purple", alpha=0.3, label="Highlighted Interval")
     
     plt.ylim(0, 2000)  # Focus on frequencies up to 2000 Hz
-    plt.show()
+    #plt.show()
 
 def find_beeps(data, fs):
     # Create the spectrogram
@@ -81,7 +81,7 @@ def find_beeps(data, fs):
 
     # Optional: Plot the results
     plt.figure(figsize=(10, 6))
-    plt.plot(t, power_1000Hz, label="1000Hz Power")
+    #plt.plot(t, power_1000Hz, label="1000Hz Power")
     plt.axhline(y=threshold, color='r', linestyle='--', label="Threshold")
     
     intervals = list(zip(start_times, end_times))
@@ -131,5 +131,3 @@ def detect_beeps():
     beeps = find_beeps(data, fs)
 
     return beeps
-
-#plot_specgram(data, beeps)
