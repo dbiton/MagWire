@@ -6,7 +6,7 @@ from footage_parser import parse_video
 from detect_beeps import detect_beeps
 import numpy as np
 
-from simulator import create_model
+from robot_simulator import create_model
 
 
 def load_robot_pos(filepath: str):

@@ -129,11 +129,10 @@ def parse_video(video_path='data/28.11.24/robot_footage.mp4', show=False) -> Lis
         wire_end = detect_wire(frame)
         corners = detect_corners(frame)
         pos = wire_screenspace_to_gridspace(corners, wire_end)
-        if pos:
-            wire_positions.append({
-                "time": delta_time,
-                "pos": pos
-            })
+        wire_positions.append({
+            "time": delta_time,
+            "pos": pos
+        })
         delta_time += 1 / frame_rate
         if show:
             if pos:

@@ -44,4 +44,4 @@ def create_model(X, y):
     mse = mean_squared_error(y_test, y_pred)
     print(f"Mean Squared Error on Test Data: {mse:.4f}")
 
-    return model, mse
+    return model
