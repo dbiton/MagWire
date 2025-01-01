@@ -116,7 +116,7 @@ class FootageParser:
             return [pred_x, pred_y]
         return None
 
-    def parse_video(self, video_path='test_circle.mp4', show=True) -> List[dict]:
+    def parse_video(self, video_path, show = False):
         cap = cv2.VideoCapture(video_path)
         frame_rate = cap.get(cv2.CAP_PROP_FPS)
         total_time = 0

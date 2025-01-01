@@ -1,20 +1,26 @@
 import json
 
+import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from footage_parser import parse_video
+from footage_parser import FootageParser
 from detect_beeps import detect_beeps
 import numpy as np
 
 from robot_simulator import create_model
 
 
-def load_robot_pos(filepath: str):
-  with open(filepath, "r") as f:
-    return json.load(f)
+def load_robot_pos(filepath: str, offset=0):
+    with open(filepath, "r") as f:
+        data = json.load(f)
+    data = {e["time"]: np.array(e["pos"]) for e in data}
+    start_time = min(data.keys()) + offset
+    data = {k-start_time: v for (k,v) in data.items()}
+    return data
 
-def load_magwire_pos():
-    wire_pos = parse_video()
+def load_magwire_pos(video_path: str):
+    footage_parser = FootageParser()
+    wire_pos = footage_parser.parse_video(video_path)
     return wire_pos
 
 def find_ranges(numbers):
@@ -66,14 +72,7 @@ def detect_robot_pauses(robot_data):
     flat_ranges = [r for r in flat_ranges if r[1]-r[0] > 0.9]
     return flat_ranges
 
-def main():
-    robot_data = load_robot_pos('data\\28.11.24\\robot_pos.json')
-    start_time = min([v['time'] for v in robot_data]) - 16.936 + 6.4
-    for v in robot_data:
-        v['time'] -= start_time
-    robot_pauses = detect_robot_pauses(robot_data)
-    beep_intervals = detect_beeps()
-
+def plot_robot_velocity(robot_data):
     ys = [v['pos'] for v in robot_data] 
     x = [v['time'] for v in robot_data]
     ys_sep = [[y[i] for y in ys] for i in range(len(ys[0]))]
@@ -81,31 +80,55 @@ def main():
     dy_dx = [sum(_dy_dx[i] for _dy_dx in dys_dxs) for i in range(len(dys_dxs[0]))]
 
     plt.figure()
-
-    #plt.plot(x, dy_dx, color='r', label='robot', alpha=0.33)
-
+    plt.plot(x, dy_dx, color='r', label='robot', alpha=0.33)
     vs = [(i, u) for ((i, u), v) in zip(enumerate(x), dy_dx) if abs(v) < 0.01]
-
     rs = find_ranges(v[0] for v in vs)
     rs = [r for r in rs if r[1]-r[0] > 50]
-
     vsdict = {k: v for (k,v) in vs}
     stop_intervals = [(vsdict[start], vsdict[end]) for start, end in rs]
+    robot_pauses = detect_robot_pauses(robot_data)
+    beep_intervals = detect_beeps()
     for start, end in stop_intervals:
         plt.axvspan(start, end, color='b', alpha=0.33)
     for start, end in beep_intervals:
         plt.axvspan(start, end, color='y', alpha=0.33)
-    
-    # plt.plot(robot_pauses, marker='s', linestyle='-', color='b', label='pauses')
+    plt.plot(robot_pauses, marker='s', linestyle='-', color='b', label='pauses')
     plt.legend()
-    #plt.show()
+    plt.show()
 
-    wire_pos = load_magwire_pos()
-    return wire_pos, robot_data
+def main():
+    print("loading robot position...")
+    robot_pos = load_robot_pos('data\\28.11.24\\robot_pos.json', -10.536)
+    print("loading wire position...")
+    wire_pos = load_magwire_pos('data\\28.11.24\\robot_footage.mp4')
+    print("creating positions interpolations...")
+    t_start = max(min(wire_pos.keys()), min(robot_pos.keys()))
+    t_end = min(max(wire_pos.keys()), max(robot_pos.keys()))
+    dt_wire = np.diff(list(wire_pos.keys()), axis=0)
+    dt_robot = np.diff(list(robot_pos.keys()), axis=0)
+    t_step = min(np.mean(dt_robot), np.mean(dt_wire))
+    wire_pos = create_multidimensional_interpolation_function(wire_pos)
+    robot_pos = create_multidimensional_interpolation_function(robot_pos)
+    print("creating training data...")
+    data = {
+        "time": [],
+        "robot": [],
+        "wire": []
+    }
+    for t_curr in np.arange(t_start, t_end, t_step):
+        data["time"].append(t_curr)
+        data["robot"].append(robot_pos(t_curr))
+        data["wire"].append(wire_pos(t_curr))
+    data = pd.DataFrame(data)
+    print("training robot simulator...")
+    robot_simulator = create_model(data)
+    print("training RL agent using robot simulator...")
+    print("done!")
 
 from scipy.interpolate import interp1d
 
-def create_multidimensional_interpolation_function(points):
+def create_multidimensional_interpolation_function(points_dict: dict):
+    points = [(k,v) for (k,v) in points_dict.items()]
     points = sorted(points, key=lambda p: p[0])
     x_values = [p[0] for p in points]
     y_values = np.array([p[1] for p in points])  # Convert list of y-lists to a 2D array
@@ -118,25 +141,4 @@ def create_multidimensional_interpolation_function(points):
     return interpolator
 
 if __name__ == "__main__":
-    time_step = 0.05
-    wire_pos, robot_data = main()
-    time_start = max(min([v["time"] for v in wire_pos]), min([v["time"] for v in robot_data]))
-    time_end = min(max([v["time"] for v in wire_pos]), max([v["time"] for v in robot_data]))
-    wire_pos = [(v["time"], v["pos"]) for v in wire_pos]
-    robot_data = [(v["time"], v["pos"]) for v in robot_data]
-    wire_pos = create_multidimensional_interpolation_function(wire_pos)
-    robot_data = create_multidimensional_interpolation_function(robot_data)
-    
-    X = []
-    y = []
-    for t in np.arange(time_start, time_end, time_step):
-        print(t)
-        X.append(np.concatenate(([time_step], robot_data(t)), axis=0))
-        y.append(wire_pos(t))
-    X = np.array(X)
-    y = np.array(y)
-    scaler_X = MinMaxScaler()
-    scaler_y = MinMaxScaler()
-    X = scaler_X.fit_transform(X)
-    y = scaler_y.fit_transform(y)
-    create_model(X, y)
+    main()
