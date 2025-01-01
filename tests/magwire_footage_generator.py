@@ -9,7 +9,7 @@ import shutil
 COLOR_WHITE = (255, 255, 255)
 COLOR_GREEN = (0, 255, 0)
 COLOR_BLUE = (0, 0, 255)
-COLOR_RED = (255, 0, 0)
+COLOR_YELLOW = (255, 255, 0)
 
 PosFuncType = Callable[[float], Tuple[float, float]]
 
@@ -24,7 +24,7 @@ def delete_folder(folder_path: str):
         print(f"Folder '{folder_path}' does not exist.")
 
 class MagwireFootageGenerator:
-    def __init__(self, width = 1280, height = 720, fps = 30, corner_margin = 64, grid_size = 64, corner_dot_size = 32, magwire_dot_size = 16):
+    def __init__(self, width = 1280, height = 720, fps = 30, corner_margin = 50, grid_size = 50, corner_dot_size = 32, magwire_dot_size = 16):
         self.width = width
         self.height = height
         self.margin = corner_margin
@@ -65,8 +65,8 @@ class MagwireFootageGenerator:
             for corner in corners:
                 pygame.draw.circle(screen, COLOR_GREEN, corner, self.corner_dot_size)
             pos = magwire_pos(total_time)
-            magwire_positions[total_time] = pos
-            pygame.draw.circle(screen, COLOR_RED, (int(pos[0]), int(pos[1])), self.magwire_dot_size)
+            magwire_positions[total_time] = (pos[0] - self.margin, pos[1] - self.margin)
+            pygame.draw.circle(screen, COLOR_YELLOW, (int(pos[0]), int(pos[1])), self.magwire_dot_size)
             pygame.image.save(screen, f"{frames_folder}/frame_{i_frame:04d}.png")
         pygame.quit()
         self.process_frames_into_video(frames_folder, output_path)
