@@ -25,7 +25,7 @@ def delete_folder(folder_path: str):
         print(f"Folder '{folder_path}' does not exist.")
 
 class MagwireFootageGenerator:
-    def __init__(self, width = 1280, height = 720, fps = 30, corner_margin = 50, grid_size = 50, corner_dot_size = 32, magwire_dot_size = 16):
+    def __init__(self, width = 1280, height = 720, fps = 30, corner_margin = 100, grid_size = 50, corner_dot_size = 32, magwire_dot_size = 16):
         self.width = width
         self.height = height
         self.margin = corner_margin

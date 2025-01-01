@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 class FootageParser:
-    def __init__(self, width = 1280, height = 720, margin = 50):
+    def __init__(self, width = 1280, height = 720, margin = 100):
         self.width = width - 2 * margin
         self.height = height - 2 * margin
 
@@ -130,19 +130,7 @@ class FootageParser:
             pos = self.wire_screenspace_to_gridspace(corners, wire_end)
             positions.append(pos)
             total_time += 1 / frame_rate
-            if show:
-                if pos:
-                    cv2.putText(
-                        frame,                        # Frame
-                        f"{float(round(pos[0])), float(round(pos[1]))}",
-                        (10, 100),                    # Position (x, y)
-                        cv2.FONT_HERSHEY_SIMPLEX,     # Font
-                        1,                            # Font scale
-                        (0, 255, 0),                  # Color (BGR - green)
-                        2,                            # Thickness
-                        cv2.LINE_AA                   # Line type
-                    )
-                    
+            if show:                    
                 timer_text = f"{int(total_time // 60):02}:{int(total_time % 60):02}"
                 
                 for corner in corners:
@@ -174,10 +162,22 @@ class FootageParser:
                     (10, 50),                     # Position (x, y)
                     cv2.FONT_HERSHEY_SIMPLEX,     # Font
                     1,                            # Font scale
-                    (0, 255, 0),                  # Color (BGR - green)
+                    (0, 0, 255),                  # Color (BGR - green)
                     2,                            # Thickness
                     cv2.LINE_AA                   # Line type
                 )
+                
+                if pos:
+                    cv2.putText(
+                        frame,                        # Frame
+                        f"{float(round(pos[0])), float(round(pos[1]))}",
+                        (10, 100),                    # Position (x, y)
+                        cv2.FONT_HERSHEY_SIMPLEX,     # Font
+                        1,                            # Font scale
+                        (0, 0, 255),                  # Color (BGR - green)
+                        2,                            # Thickness
+                        cv2.LINE_AA                   # Line type
+                    )
                 
                 cv2.imshow('Footage', frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
