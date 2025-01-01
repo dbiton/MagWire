@@ -1,11 +1,12 @@
 from typing import List
 import cv2
 import numpy as np
+import pandas as pd
 
 class FootageParser:
-    def __init__(self, width = 1280, height = 720):
-        self.width = width
-        self.height = height
+    def __init__(self, width = 1280, height = 720, margin = 50):
+        self.width = width - 2 * margin
+        self.height = height - 2 * margin
 
     def detect_corners(self, image):
         # Convert the image to HSV color space
@@ -118,8 +119,8 @@ class FootageParser:
     def parse_video(self, video_path='test_circle.mp4', show=True) -> List[dict]:
         cap = cv2.VideoCapture(video_path)
         frame_rate = cap.get(cv2.CAP_PROP_FPS)
-        delta_time = 0
-        wire_positions = []
+        total_time = 0
+        positions = []
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -127,11 +128,8 @@ class FootageParser:
             wire_end = self.detect_wire(frame)
             corners = self.detect_corners(frame)
             pos = self.wire_screenspace_to_gridspace(corners, wire_end)
-            wire_positions.append({
-                "time": delta_time,
-                "pos": pos
-            })
-            delta_time += 1 / frame_rate
+            positions.append(pos)
+            total_time += 1 / frame_rate
             if show:
                 if pos:
                     cv2.putText(
@@ -145,7 +143,7 @@ class FootageParser:
                         cv2.LINE_AA                   # Line type
                     )
                     
-                timer_text = f"{int(delta_time // 60):02}:{int(delta_time % 60):02}"
+                timer_text = f"{int(total_time // 60):02}:{int(total_time % 60):02}"
                 
                 for corner in corners:
                     center_x, center_y, radius = corner
@@ -188,4 +186,10 @@ class FootageParser:
         # Release the video capture object and close any open windows
         cap.release()
         cv2.destroyAllWindows()
-        return wire_positions
+        
+        positions = pd.Series(positions)
+        positions = positions.ffill().bfill()
+        if positions.isnull().all():
+            positions = np.zeros((len(positions), 2))
+        positions = {i / frame_rate : pos for (i, pos) in enumerate(positions)}
+        return positions

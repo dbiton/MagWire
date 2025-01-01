@@ -1,4 +1,5 @@
 import os
+import random
 from typing import Callable, Tuple
 import numpy as np
 import pygame
@@ -36,6 +37,21 @@ class MagwireFootageGenerator:
     def generate_circle(self, radius: float, angular_velocity: float, duration_seconds: float, output_path: str):
         center = (self.width / 2, self.height / 2)
         magwire_pos = lambda t: (center[0] + radius * math.cos(angular_velocity * t),  center[1] + radius * math.sin(angular_velocity * t))
+        return self.generate(magwire_pos, duration_seconds, output_path)
+    
+    def generate_brownian(self, x_limit: Tuple[float, float], y_limit: Tuple[float, float], speed: float, duration_seconds: float, output_path: str):
+        center = (self.width / 2, self.height / 2)
+        def magwire_pos(t):
+            if t == 0:
+                magwire_pos.current_x = center[0]
+                magwire_pos.current_y = center[1]
+            delta_x = random.uniform(-speed, speed)
+            delta_y = random.uniform(-speed, speed)
+            magwire_pos.current_x = max(x_limit[0], min(x_limit[1], magwire_pos.current_x + delta_x))
+            magwire_pos.current_y = max(y_limit[0], min(y_limit[1], magwire_pos.current_y + delta_y))
+            return magwire_pos.current_x, magwire_pos.current_y
+        magwire_pos.current_x = center[0]
+        magwire_pos.current_y = center[1]
         return self.generate(magwire_pos, duration_seconds, output_path)
     
     def process_frames_into_video(self, frames_path: str, output_path: str):
