@@ -4,10 +4,12 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from footage_parser import FootageParser
-from detect_beeps import detect_beeps
+# from detect_beeps import detect_beeps
 import numpy as np
-
-from robot_simulator import create_model
+from stable_baselines3 import PPO
+from stable_baselines3.common.env_checker import check_env
+from magwire_gym_env import MagwireEnv
+from robot_simulator import RobotSimulator
 
 
 def load_robot_pos(filepath: str, offset=0):
@@ -96,6 +98,30 @@ def plot_robot_velocity(robot_data):
     plt.legend()
     plt.show()
 
+def train_rl_model(env: MagwireEnv):
+    check_env(env, warn=True)
+
+    # Wrap your environment for training
+    train_env = env
+
+    # Instantiate the PPO model
+    model = PPO("MlpPolicy", train_env, verbose=1, tensorboard_log="./ppo_magwire/")
+
+    # Train the model
+    model.learn(total_timesteps=100000)
+
+    # Save the model
+    model.save("ppo_magwire_model.h5")
+
+    # Load and evaluate
+    model = PPO.load("ppo_magwire_model.h5")
+    obs = train_env.reset()
+    for _ in range(1000):
+        action, _states = model.predict(obs, deterministic=True)
+        obs, rewards, done, info = train_env.step(action)
+        if done:
+            obs = train_env.reset()
+
 def main():
     print("loading robot position...")
     robot_pos = load_robot_pos('data\\28.11.24\\robot_pos.json', -10.536)
@@ -121,8 +147,11 @@ def main():
         data["wire"].append(wire_pos(t_curr))
     data = pd.DataFrame(data)
     print("training robot simulator...")
-    robot_simulator = create_model(data)
+    robot_simulator = RobotSimulator(load_model_path="robot_simulator_model.h5")
+    robot_simulator.train_model(data)
     print("training RL agent using robot simulator...")
+    env = MagwireEnv(robot_simulator)
+    train_rl_model(env)
     print("done!")
 
 from scipy.interpolate import interp1d
