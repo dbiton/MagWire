@@ -45,6 +45,7 @@ class MagwireEnv(gym.Env):
         self.steps_taken = 0
         
         self.magwire_target_pos = np.random.uniform(low=0.0, high=1.0, size=2).astype(np.float32)
+        self.robot_interface.magwire_pos = np.random.uniform(low=0.0, high=1.0, size=2).astype(np.float32)
         
         # Random robot config in [0, 2*pi]^6
         request_robot_config = np.random.uniform(low=0.0, high=2 * math.pi, size=6)

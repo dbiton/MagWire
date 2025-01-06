@@ -3,10 +3,10 @@ import cv2
 import numpy as np
 import pandas as pd
 
+
 class FootageParser:
-    def __init__(self, width = 1280, height = 720, margin = 100):
-        self.width = width - 2 * margin
-        self.height = height - 2 * margin
+    def __init__(self):
+        pass
 
     def detect_corners(self, image):
         # Convert the image to HSV color space
@@ -111,8 +111,8 @@ class FootageParser:
             sorted_points = sorted_points.reshape((-1, 1, 2))
             wire_end_pos = wire_end[0], wire_end[1]
             norm_pred_x, norm_pred_y = self.map_point_to_normalized_space(sorted_points, wire_end_pos)
-            pred_x = norm_pred_x * self.width
-            pred_y = self.height - norm_pred_y * self.height
+            pred_x = norm_pred_x 
+            pred_y = 1 - norm_pred_y
             return [pred_x, pred_y]
         return None
 
@@ -170,7 +170,7 @@ class FootageParser:
                 if pos:
                     cv2.putText(
                         frame,                        # Frame
-                        f"{float(round(pos[0])), float(round(pos[1]))}",
+                        f"{float(round(pos[0], 2)), float(round(pos[1], 2))}",
                         (10, 100),                    # Position (x, y)
                         cv2.FONT_HERSHEY_SIMPLEX,     # Font
                         1,                            # Font scale

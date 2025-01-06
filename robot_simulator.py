@@ -77,7 +77,7 @@ class RobotSimulator(RobotInterface):
             hidden_units = 64
             self.build_model(input_shape, output_length, hidden_units)
 
-        self.model.fit(X_train, y_train, epochs=50, batch_size=128, validation_split=0.1)
+        self.model.fit(X_train, y_train, epochs=128, batch_size=512, validation_split=0.1)
 
         if self.save_model_path:
             self.model.save(self.save_model_path)

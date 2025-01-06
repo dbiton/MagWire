@@ -114,13 +114,15 @@ def train_rl_model(env: MagwireEnv):
     model.save("ppo_magwire_model.h5")
 
     # Load and evaluate
+    robot_simulator = RobotSimulator(load_model_path="robot_simulator_model.h5")
+    env = MagwireEnv(robot_simulator)
     model = PPO.load("ppo_magwire_model.h5")
-    obs = train_env.reset()
+    obs, info = env.reset()
     for _ in range(1000):
         action, _states = model.predict(obs, deterministic=True)
-        obs, rewards, done, info = train_env.step(action)
+        obs, rewards, done, trunc, info = env.step(action)
         if done:
-            obs = train_env.reset()
+            obs = env.reset()
 
 def main():
     print("loading robot position...")
@@ -170,4 +172,14 @@ def create_multidimensional_interpolation_function(points_dict: dict):
     return interpolator
 
 if __name__ == "__main__":
+    '''robot_simulator = RobotSimulator(load_model_path="robot_simulator_model.h5")
+    env = MagwireEnv(robot_simulator)
+    model = PPO.load("ppo_magwire_model.h5")
+    obs, info = env.reset()
+    for _ in range(1000):
+        action, _states = model.predict(obs, deterministic=True)
+        obs, rewards, done, trunc, info = env.step(action)
+        print(info)
+        if done:
+            obs = env.reset()'''
     main()
