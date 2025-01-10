@@ -1,0 +1,10 @@
+pandas
+matplotlib
+scikit-learn
+numpy
+urx
+scipy
+moviepy
+stable_baselines3
+gymnasium
+opencv-python
