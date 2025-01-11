@@ -46,9 +46,10 @@ class RobotSimulator(RobotInterface):
     def process_data(self, data: dict):
         X = []
         y = []
-        seconds_past = 3
-        seconds_future = 3
+        seconds_past = 1
+        seconds_future = 1
         mean_dt = np.mean(np.diff(data['time']))
+        data['actuator'] = data['robot'].apply(self.estimate_actuator_transform)
         frames_count_past = int(seconds_past / mean_dt)
         frames_count_future = int(seconds_future / mean_dt)
         for i_frame in range(frames_count_past, len(data) - frames_count_future):
@@ -58,10 +59,11 @@ class RobotSimulator(RobotInterface):
             magwire_pos_future = np.stack(frames_future["wire"].to_numpy()).flatten()
             y.append(magwire_pos_future)
             robot_pos = np.stack(frames["robot"].to_numpy())
+            actuator_pos = np.stack([np.array(e).flatten() for e in frames["actuator"]])
             magwire_pos_past = np.stack(frames_past["wire"].to_numpy())
             magwire_pos_past_padding = np.zeros((len(frames)-len(magwire_pos_past), 2))
             magwire_pos_past = np.concatenate((magwire_pos_past, magwire_pos_past_padding), axis=0)
-            features = np.concatenate((magwire_pos_past,robot_pos), axis=1)
+            features = np.concatenate((magwire_pos_past, robot_pos, actuator_pos), axis=1)
             X.append(features)        
         return np.array(X), np.array(y)
 

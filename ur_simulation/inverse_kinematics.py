@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
+
 import numpy as np
 from environment import Environment
 from kinematics import UR5e_PARAMS, Transform

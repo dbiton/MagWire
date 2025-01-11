@@ -185,7 +185,8 @@ class FootageParser:
 
         # Release the video capture object and close any open windows
         cap.release()
-        cv2.destroyAllWindows()
+        
+        # cv2.destroyAllWindows()
         
         positions = pd.Series(positions)
         positions = positions.ffill().bfill()

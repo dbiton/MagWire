@@ -11,7 +11,7 @@ class RRT_CONNECT(object):
         self.flip = 0
         self.connection_conf = None
 
-    def find_path(self, start_conf, goal_conf, filename):
+    def find_path(self, start_conf, goal_conf, filename = None):
         """Implement RRT-Connect"""
 
         time_start = time.time()
