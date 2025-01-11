@@ -16,7 +16,6 @@ class RobotSimulator(RobotInterface):
         if load_model_path:
             print("loading model from", load_model_path)
             self.model = load_model(load_model_path)
-        self.robot_config = np.zeros((6,))
         self.magwire_pos = np.array([0.5, 0.5])
     
     def build_model(self, input_shape: Tuple[int, int], output_length: int, hidden_units: int) -> None:
