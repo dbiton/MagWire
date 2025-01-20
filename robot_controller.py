@@ -76,6 +76,13 @@ class BaseRobot:
         """
         return self.robot.getj()
 
+    def move_waypoints(self, waypoints: list):
+        for waypoint in waypoints:
+            pose = waypoint[:6]
+            velocity = waypoint[7]
+            acceleration = waypoint[8]
+            self.robot.movel_tool(pose, acc=acceleration, vel=velocity, wait=True, relative=False)
+    
     def execute_path(self, path, timing_profile=None):
         """
         Executes a given path with optional timing profile.
