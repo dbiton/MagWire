@@ -95,13 +95,13 @@ if __name__ == "__main__":
     # Grid lines 1 cm apart, line thickness = 0.05 cm
     # Grid color = (0,0,0) i.e. black; corner squares = (255,0,0) i.e. red
     img = generate_grid_image(
-        width_cm=20.0,
-        height_cm=10.0,
+        width_cm=15.0,
+        height_cm=20.0,
         grid_space_size_cm=0.5,
         grid_line_width_cm=0.05,
-        grid_color_rgb=(0, 0, 255),  # black
-        corner_square_size_cm=1.0,
-        corner_square_color_rgb=(0, 255, 0),  # red
+        grid_color_rgb=(0, 0, 255),
+        corner_square_size_cm=2.0,
+        corner_square_color_rgb=(0, 255, 0),
         dpi=300
     )
 

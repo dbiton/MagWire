@@ -1,3 +1,4 @@
+from time import time
 from typing import List
 import cv2
 import numpy as np
@@ -13,7 +14,7 @@ class FootageParser:
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         # Define the range of blue color in HSV
-        lower_green = np.array([35, 100, 100])
+        lower_green = np.array([35, 80, 60])
         upper_green = np.array([85, 255, 255])
         
         # Create a mask for blue color
@@ -116,13 +117,23 @@ class FootageParser:
             return [pred_x, pred_y]
         return None
 
-    def parse_video(self, video_path, show = False):
-        cap = cv2.VideoCapture(video_path)
+    def parse_video(self, video_path, show = False, record = False):
+        if record:
+            cap = cv2.VideoCapture(5)
+            #frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            #frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            #fps = cap.get(cv2.CAP_PROP_FPS)
+            #fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            #writer = cv2.VideoWriter(video_path, fourcc, fps, (frame_width, frame_height))
+        else:
+            cap = cv2.VideoCapture(video_path)
         frame_rate = cap.get(cv2.CAP_PROP_FPS)
         total_time = 0
         positions = []
         while True:
             ret, frame = cap.read()
+            if record:
+                cv2.imwrite(f"{video_path}/{time()}.png", frame)
             if not ret:
                 break  # End of video
             wire_end = self.detect_wire(frame)
@@ -185,8 +196,7 @@ class FootageParser:
 
         # Release the video capture object and close any open windows
         cap.release()
-        
-        # cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
         
         positions = pd.Series(positions)
         positions = positions.ffill().bfill()

@@ -3,7 +3,7 @@
 import numpy as np
 from ur_simulation.building_blocks import Building_Blocks
 from ur_simulation.environment import Environment
-from ur_simulation.inverse_kinematics import forward_kinematic_solution, DH_matrix_UR5e
+from ur_simulation.inverse_kinematics import forward_kinematic_solution, DH_matrix_UR5e, inverse_kinematic_solution
 from ur_simulation.kinematics import Transform, UR5e_PARAMS
 from ur_simulation.planners import RRT_CONNECT
 
@@ -13,7 +13,10 @@ class RobotInterface:
     
     def estimate_actuator_transform(self, robot_config):
         return forward_kinematic_solution(DH_matrix_UR5e, robot_config)
-    
+
+    def estimate_robot_config(self, actuator_transfor):
+        return inverse_kinematic_solution(DH_matrix_UR5e, actuator_transfor)
+
     def estimate_robot_path(self, robot_config_initial, robot_config_target):
         ur_params = UR5e_PARAMS(inflation_factor=1)
         env = Environment(env_idx=2)
