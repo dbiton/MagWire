@@ -1,16 +1,33 @@
 
 
 import numpy as np
+from footage_parser import FootageParser
+from move_silly import get_config, move_waypoint
 from ur_simulation.building_blocks import Building_Blocks
 from ur_simulation.environment import Environment
 from ur_simulation.inverse_kinematics import forward_kinematic_solution, DH_matrix_UR5e, inverse_kinematic_solution
 from ur_simulation.kinematics import Transform, UR5e_PARAMS
 from ur_simulation.planners import RRT_CONNECT
+import threading
 
 class RobotInterface:
     def __init__(self):
-        self.robot_config = np.zeros((6,))
-    
+        self.last_waypoint = None
+        self.magwire_pos = [0.5, 0.5]
+        self.magwire_last_update = None
+        self.fp_thread = threading.Thread(target=self._thread_update_wire_pos)
+        self.fp_thread.daemon = True
+        self.fp_thread.start()
+
+    def _thread_update_wire_pos(self):
+        fp = FootageParser()
+        for pos, t in fp.parse_video("frames", True, True):
+            self.magwire_pos = pos
+            self.magwire_last_update = t
+
+    def get_current_position(self):
+        return self.last_waypoint[:3]
+
     def estimate_actuator_transform(self, robot_config):
         return forward_kinematic_solution(DH_matrix_UR5e, robot_config)
 
@@ -34,7 +51,9 @@ class RobotInterface:
         return path
             
     def get_config(self):
-        return self.robot_config
+        robot_config = get_config()
+        return robot_config, self.magwire_pos
     
-    def move(self, robot_config):
-        self.robot_config = robot_config
+    def move(self, waypoint):
+        move_waypoint(waypoint)
+        self.last_waypoint = waypoint

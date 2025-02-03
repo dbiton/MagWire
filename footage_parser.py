@@ -14,7 +14,7 @@ class FootageParser:
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         # Define the range of blue color in HSV
-        lower_green = np.array([35, 80, 60])
+        lower_green = np.array([35, 70, 40])
         upper_green = np.array([85, 255, 255])
         
         # Create a mask for blue color
@@ -45,7 +45,7 @@ class FootageParser:
 
         # Define the range of red color in HSV
         
-        lower_yellow = np.array([20, 100, 100])
+        lower_yellow = np.array([0, 80, 80])
         upper_yellow = np.array([40, 255, 255])
 
         # Create a mask for red color
@@ -119,7 +119,16 @@ class FootageParser:
 
     def parse_video(self, video_path, show = False, record = False):
         if record:
-            cap = cv2.VideoCapture(5)
+            cap = None
+            for i in range(10):
+                try:
+                    cap = cv2.VideoCapture(i)
+                    print(f"Found capture device {i}")
+                    break
+                except:
+                    continue
+            if cap is None:
+                raise Exception("Cap notfound")
             #frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             #frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             #fps = cap.get(cv2.CAP_PROP_FPS)
@@ -129,7 +138,6 @@ class FootageParser:
             cap = cv2.VideoCapture(video_path)
         frame_rate = cap.get(cv2.CAP_PROP_FPS)
         total_time = 0
-        positions = []
         while True:
             ret, frame = cap.read()
             if record:
@@ -139,7 +147,8 @@ class FootageParser:
             wire_end = self.detect_wire(frame)
             corners = self.detect_corners(frame)
             pos = self.wire_screenspace_to_gridspace(corners, wire_end)
-            positions.append(pos)
+            if pos:
+                yield pos, i / frame_rate
             total_time += 1 / frame_rate
             if show:                    
                 timer_text = f"{int(total_time // 60):02}:{int(total_time % 60):02}"
@@ -197,10 +206,3 @@ class FootageParser:
         # Release the video capture object and close any open windows
         cap.release()
         cv2.destroyAllWindows()
-        
-        positions = pd.Series(positions)
-        positions = positions.ffill().bfill()
-        if positions.isnull().all():
-            positions = np.zeros((len(positions), 2))
-        positions = {i / frame_rate : pos for (i, pos) in enumerate(positions)}
-        return positions

@@ -1,31 +1,76 @@
 import math
+import random
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 from robot_interface import RobotInterface
 
 
+def create_box(vertices):
+    # Extract the x, y, z coordinates
+    x_coords = [v[0] for v in vertices]
+    y_coords = [v[1] for v in vertices]
+    z_coords = [v[2] for v in vertices]
+    
+    # Calculate the min and max values for x, y, and z
+    x_min = min(x_coords)
+    x_max = max(x_coords)
+    y_min = min(y_coords)
+    y_max = max(y_coords)
+    z_min = min(z_coords)
+    z_max = max(z_coords)
+    
+    # Return the min and max values that define the box
+    return (x_min, x_max, y_min, y_max, z_min, z_max)
+
+def is_point_inside_box(point, box):
+    # Point is a tuple (x, y, z)
+    x, y, z = point
+    
+    # Box is a tuple (x_min, x_max, y_min, y_max, z_min, z_max)
+    x_min, x_max, y_min, y_max, z_min, z_max = box
+    
+    # Check if the point is inside the box
+    if x_min <= x <= x_max and y_min <= y <= y_max and z_min <= z <= z_max:
+        return True
+    else:
+        return False
+
 class MagwireEnv(gym.Env):
-    def __init__(self, robot_interface: RobotInterface, max_steps=50):
+    def __init__(self, robot_interface: RobotInterface, max_steps=100):
         super(MagwireEnv, self).__init__()
         
         self.robot_interface = robot_interface
         self.max_steps = max_steps
+        self.radius = 25/1000
+        self.velocity = 0.5
+        self.acceleration = 0.2
+    
+        # Bottom 4 corners
+        v000 = (-125/1000,  -565/1000,   310/1000)
+        v100 = (10/1000,    -565/1000,   310/1000)
+        v010 = (10/1000,    -400/1000,   310/1000)
+        v110 = (-125/1000,  -400/1000,   310/1000)
 
-        # Action space: 6D in [0, 2*pi]
-        self.action_space = spaces.Box(
-            low=0.0,
-            high=math.pi * 2,
-            shape=(6,),
-            dtype=np.float32
-        )
+        # Top 4 corners
+        v001 = (-125/1000,   -565/1000,   350/1000)
+        v101 = ( 10/1000,     -565/1000,   350/1000)
+        v011 = ( 10/1000,     -400/1000,   350/1000)
+        v111 = (-125/1000,   -400/1000,   350/1000)
 
-        # Observation space: 2D in [0, 1]
-        self.observation_space = spaces.Box(
-            low=float('-inf'),
-            high=float('inf'),
-            shape=(2,),
-            dtype=np.float32
+        corners = [v000, v100, v010, v110, v001, v101, v011, v111]
+
+        self.actuator_bbox = create_box(corners)
+
+        self.action_space = gym.spaces.Discrete(7)
+        
+        magwire_position_space = gym.spaces.Box(low=np.array([-2.0, -2.0]), high=np.array([2.0, 2.0]), dtype=np.float64)
+        robot_config_space = gym.spaces.Box(low=np.array([-np.pi] * 6), high=np.array([np.pi] * 6), dtype=np.float64)
+        
+        self.observation_space = gym.spaces.Box(
+            low=np.concatenate([magwire_position_space.low, robot_config_space.low]),
+            high=np.concatenate([magwire_position_space.high, robot_config_space.high]),
+            dtype=np.float64
         )
 
         self.steps_taken = None
@@ -43,20 +88,20 @@ class MagwireEnv(gym.Env):
         super().reset(seed=seed)  # Initialize RNG with seed
 
         self.steps_taken = 0
-        
-        self.magwire_target_pos = np.random.uniform(low=0.0, high=1.0, size=2).astype(np.float32)
-        self.robot_interface.magwire_pos = np.random.uniform(low=0.0, high=1.0, size=2).astype(np.float32)
-        
-        # Random robot config in [0, 2*pi]^6
-        request_robot_config = np.random.uniform(low=0.0, high=2 * math.pi, size=6)
-        self.robot_interface.move(request_robot_config)
-        self.magwire_curr_pos, actual_robot_config = self.robot_interface.get_config()
-        
-        # Return initial observation and info
-        observation = np.array(self.magwire_curr_pos, dtype=np.float32)
+        self.magwire_target_pos = np.random.uniform(low=0.0, high=1.0, size=2).astype(np.float64)
+
+        orientation = [0, math.pi, 0]
+        position = [
+            random.uniform(self.actuator_bbox[0], self.actuator_bbox[1]),
+            random.uniform(self.actuator_bbox[2], self.actuator_bbox[3]),
+            random.uniform(self.actuator_bbox[4], self.actuator_bbox[5]),
+        ]
+        movement = position + orientation + [self.velocity, self.acceleration]
+        self.robot_interface.move(movement)
+        magwire_pos, robot_config = self.robot_interface.get_config()
+        observation = np.concatenate([magwire_pos, robot_config])
         info = {
             'target_pos': self.magwire_target_pos,
-            'initial_robot_config': actual_robot_config
         }
         return observation, info
 
@@ -66,15 +111,31 @@ class MagwireEnv(gym.Env):
         Then observe the new magwire position from the robot interface.
         Reward = -distance to the target.
         """
-        # Clip action to ensure it’s within the valid range
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        
+        directions = [
+            [ 0, 0, 1],
+            [ 0, 0,-1],
+            [ 0, 1, 0],
+            [ 0,-1, 0],
+            [ 1, 0, 0],
+            [-1, 0, 0],
+            [ 0, 0, 0],
+        ]
 
-        # Move the robot, retrieve the updated magwire position and robot config
-        self.robot_interface.move(action)
-        self.magwire_curr_pos, robot_config = self.robot_interface.get_config()
+        direction = directions[action]
+        position = list(self.robot_interface.get_current_position() + self.radius * np.array(direction))
+        
+        if not is_point_inside_box(position, self.actuator_bbox):
+            position = self.robot_interface.get_current_position()
+
+        orientation = [0, math.pi, 0]
+        movement = position + orientation + [self.velocity, self.acceleration]
+        self.robot_interface.move(movement)
+        robot_config, magwire_pos = self.robot_interface.get_config()
+        observation = np.concatenate([magwire_pos, robot_config])
 
         # Distance to target
-        dist = np.linalg.norm(self.magwire_curr_pos - self.magwire_target_pos)
+        dist = np.linalg.norm(magwire_pos - self.magwire_target_pos)
         reward = float(-dist)
 
         # Update step count
@@ -93,8 +154,6 @@ class MagwireEnv(gym.Env):
             'reward': reward
         }
 
-        # Observation: magwire's current position (2D)
-        observation = np.array(self.magwire_curr_pos, dtype=np.float32)
         return observation, reward, terminated, truncated, info
 
     def render(self, mode='human'):
