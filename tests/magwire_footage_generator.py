@@ -69,7 +69,7 @@ class MagwireFootageGenerator:
             (self.margin, self.height - self.margin),               # bottom-left corner
             (self.width - self.margin, self.height - self.margin)   # bottom-right corner
         ]
-        magwire_positions = {}
+        magwire_positions = []
         for i_frame, total_time in enumerate(np.arange(0, duration_seconds, 1 / self.fps)):
             screen.fill(COLOR_WHITE)
             # Draw grid
@@ -81,8 +81,12 @@ class MagwireFootageGenerator:
             for corner in corners:
                 pygame.draw.circle(screen, COLOR_GREEN, corner, self.corner_dot_size)
             pos = magwire_pos(total_time)
-            magwire_positions[total_time] = (pos[0] - self.margin, pos[1] - self.margin)
-            pygame.draw.circle(screen, COLOR_YELLOW, (int(pos[0]), int(pos[1])), self.magwire_dot_size)
+            pos = (int(pos[0]), int(pos[1]))
+            res = np.array([self.width, self.height])
+            pos_normalized = np.array(pos) - self.margin
+            pos_normalized = pos_normalized / (res - 2 * self.margin)
+            magwire_positions.append((tuple(pos_normalized), total_time))
+            pygame.draw.circle(screen, COLOR_YELLOW, pos, self.magwire_dot_size)
             pygame.image.save(screen, f"{frames_folder}/frame_{i_frame:04d}.png")
         pygame.quit()
         self.process_frames_into_video(frames_folder, output_path)

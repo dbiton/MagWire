@@ -116,58 +116,50 @@ class FootageParser:
             pred_y = 1 - norm_pred_y
             return [pred_x, pred_y]
         return None
-
-    def parse_video(self, video_path, show = False, record = False):
-        if record:
-            cap = None
-            for i in range(10):
-                try:
-                    cap = cv2.VideoCapture(i)
-                    print(f"Found capture device {i}")
-                    break
-                except:
-                    continue
+    
+    def get_capture_device(self):
+        for i in range(10):
+            try:
+                cap = cv2.VideoCapture(i)
+                print(f"Found capture device {i}")
+                return cap
+            except:
+                continue
+        return None
+    
+    def parse_video(self, video_path, show = False, is_live = False, save_output = False, target = None):
+        if is_live:
+            cap = self.get_capture_device()
             if cap is None:
                 raise Exception("Cap notfound")
-            #frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            #frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            #fps = cap.get(cv2.CAP_PROP_FPS)
-            #fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            #writer = cv2.VideoWriter(video_path, fourcc, fps, (frame_width, frame_height))
         else:
             cap = cv2.VideoCapture(video_path)
         frame_rate = cap.get(cv2.CAP_PROP_FPS)
         total_time = 0
         while True:
             ret, frame = cap.read()
-            if record:
+            if save_output:
                 cv2.imwrite(f"{video_path}/{time()}.png", frame)
             if not ret:
-                break  # End of video
+                break
             wire_end = self.detect_wire(frame)
             corners = self.detect_corners(frame)
             pos = self.wire_screenspace_to_gridspace(corners, wire_end)
             if pos:
-                yield pos, i / frame_rate
+                yield pos, total_time
             total_time += 1 / frame_rate
             if show:                    
                 timer_text = f"{int(total_time // 60):02}:{int(total_time % 60):02}"
-                
                 for corner in corners:
                     center_x, center_y, radius = corner
                     top_left = (center_x - radius, center_y - radius)
                     bottom_right = (center_x + radius, center_y + radius)
                     cv2.rectangle(frame, top_left, bottom_right, (255, 0, 255), 2)
-                
                 if wire_end:
-                    # Create a square around the red circle
                     center_x, center_y, radius = wire_end
                     top_left = (center_x - radius, center_y - radius)
                     bottom_right = (center_x + radius, center_y + radius)
-
-                    # Draw the square (using a rectangle around the circle)
                     cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)  # Green square
-                
                 if len(corners) == 4:
                     points = np.array([[x,y] for x, y, _ in corners])
                     centroid = np.mean(points, axis=0)
@@ -175,10 +167,9 @@ class FootageParser:
                     sorted_points = points[np.argsort(angles)]
                     sorted_points = sorted_points.reshape((-1, 1, 2))
                     cv2.polylines(frame, [sorted_points], isClosed=True, color=(255, 255, 0), thickness=2)
-                
                 cv2.putText(
                     frame,                        # Frame
-                    timer_text,                   # Text to display
+                    f"TIME:{timer_text}",            # Text to display
                     (10, 50),                     # Position (x, y)
                     cv2.FONT_HERSHEY_SIMPLEX,     # Font
                     1,                            # Font scale
@@ -186,11 +177,10 @@ class FootageParser:
                     2,                            # Thickness
                     cv2.LINE_AA                   # Line type
                 )
-                
                 if pos:
                     cv2.putText(
                         frame,                        # Frame
-                        f"{float(round(pos[0], 2)), float(round(pos[1], 2))}",
+                        f"POS:{float(round(pos[0], 2)), float(round(pos[1], 2))}",
                         (10, 100),                    # Position (x, y)
                         cv2.FONT_HERSHEY_SIMPLEX,     # Font
                         1,                            # Font scale
@@ -198,11 +188,38 @@ class FootageParser:
                         2,                            # Thickness
                         cv2.LINE_AA                   # Line type
                     )
-                
+                if target:
+                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    target_screenspace = (int(target[0]*width), int(target[1]*height))
+                    radius = 10
+                    color = (0, 0, 255)
+                    thickness = -1
+                    cv2.circle(frame, target_screenspace, radius, color, thickness)
+                    cv2.putText(
+                        frame,                        # Frame
+                        f"TARGET:{float(round(target[0], 2)), float(round(target[1], 2))}",
+                        (10, 150),                    # Position (x, y)
+                        cv2.FONT_HERSHEY_SIMPLEX,     # Font
+                        1,                            # Font scale
+                        (0, 0, 255),                  # Color (BGR - green)
+                        2,                            # Thickness
+                        cv2.LINE_AA                   # Line type
+                    )
+                    if pos:
+                        distance = np.linalg.norm(np.array(target)-np.array(pos))
+                        cv2.putText(
+                            frame,                        # Frame
+                            f"DELTA:{float(round(distance, 4))}",
+                            (10, 200),                    # Position (x, y)
+                            cv2.FONT_HERSHEY_SIMPLEX,     # Font
+                            1,                            # Font scale
+                            (0, 0, 255),                  # Color (BGR - green)
+                            2,                            # Thickness
+                            cv2.LINE_AA                   # Line type
+                        )
                 cv2.imshow('Footage', frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-
-        # Release the video capture object and close any open windows
         cap.release()
         cv2.destroyAllWindows()
