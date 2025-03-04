@@ -1,29 +1,14 @@
 
 
-import numpy as np
-from footage_parser import FootageParser
-from move_silly import get_config, move_waypoint
 from ur_simulation.building_blocks import Building_Blocks
 from ur_simulation.environment import Environment
 from ur_simulation.inverse_kinematics import forward_kinematic_solution, DH_matrix_UR5e, inverse_kinematic_solution
 from ur_simulation.kinematics import Transform, UR5e_PARAMS
 from ur_simulation.planners import RRT_CONNECT
-import threading
-
+import numpy as np
 class RobotInterface:
     def __init__(self):
         self.last_waypoint = None
-        self.magwire_pos = [0.5, 0.5]
-        self.magwire_last_update = None
-        self.fp_thread = threading.Thread(target=self._thread_update_wire_pos)
-        self.fp_thread.daemon = True
-        self.fp_thread.start()
-
-    def _thread_update_wire_pos(self):
-        fp = FootageParser()
-        for pos, t in fp.parse_video("frames", True, True):
-            self.magwire_pos = pos
-            self.magwire_last_update = t
 
     def get_current_position(self):
         return self.last_waypoint[:3]
@@ -31,9 +16,30 @@ class RobotInterface:
     def estimate_actuator_transform(self, robot_config):
         return forward_kinematic_solution(DH_matrix_UR5e, robot_config)
 
-    def estimate_robot_config(self, actuator_transfor):
-        return inverse_kinematic_solution(DH_matrix_UR5e, actuator_transfor)
+    def estimate_robot_config(self, actuator_transform):
+        return inverse_kinematic_solution(DH_matrix_UR5e, actuator_transform)
 
+    def actuator_pose_to_transform(self, pose: list):
+        x, y, z, rx, ry, rz = pose
+        Rx = np.array([[1, 0, 0, 0],
+                    [0, np.cos(rx), -np.sin(rx), 0],
+                    [0, np.sin(rx), np.cos(rx), 0],
+                    [0, 0, 0, 1]])
+        Ry = np.array([[np.cos(ry), 0, np.sin(ry), 0],
+                    [0, 1, 0, 0],
+                    [-np.sin(ry), 0, np.cos(ry), 0],
+                    [0, 0, 0, 1]])
+        Rz = np.array([[np.cos(rz), -np.sin(rz), 0, 0],
+                    [np.sin(rz), np.cos(rz), 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]])
+        R = Rz @ Ry @ Rx
+        T = np.eye(4)
+        T[:3, :3] = R
+        T[:3, 3] = [x, y, z]
+        return T
+
+    
     def estimate_robot_path(self, robot_config_initial, robot_config_target):
         ur_params = UR5e_PARAMS(inflation_factor=1)
         env = Environment(env_idx=2)
@@ -48,12 +54,14 @@ class RobotInterface:
                                     bb=bb)
         path, path_cost, plan_time = rrt_star_planner.find_path(start_conf=robot_config_initial,
                                                                 goal_conf=robot_config_target)
-        return path
+        return path, path_cost, plan_time
             
     def get_config(self):
-        robot_config = get_config()
-        return robot_config, self.magwire_pos
+        raise Exception('Virtual method')
     
-    def move(self, waypoint):
-        move_waypoint(waypoint)
-        self.last_waypoint = waypoint
+    def move_waypoint(self, waypoint):
+        raise Exception('Virtual method')
+    
+    def move_waypoints(self, waypoints: list):
+        for waypoint in waypoints:
+            self.move_waypoint(waypoint)

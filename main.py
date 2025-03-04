@@ -2,9 +2,7 @@ import json
 
 import pandas as pd
 from matplotlib import pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
 from footage_parser import FootageParser
-# from detect_beeps import detect_beeps
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
@@ -22,7 +20,7 @@ def load_robot_pos(filepath: str, offset=0):
 
 def load_magwire_pos(video_path: str):
     footage_parser = FootageParser()
-    wire_pos = footage_parser.parse_video(video_path)
+    wire_pos = [v for v in footage_parser.parse_video(video_path)]
     return wire_pos
 
 def find_ranges(numbers):
@@ -129,6 +127,7 @@ def main():
     robot_pos = load_robot_pos('data\\28.11.24\\robot_pos.json', -10.536)
     print("loading wire position...")
     wire_pos = load_magwire_pos('data\\28.11.24\\robot_footage.mp4')
+    wire_pos = {v[1]: v[0] for v in wire_pos}
     print("creating positions interpolations...")
     t_start = max(min(wire_pos.keys()), min(robot_pos.keys()))
     t_end = min(max(wire_pos.keys()), max(robot_pos.keys()))
@@ -150,7 +149,7 @@ def main():
     data = pd.DataFrame(data)
     print("training robot simulator...")
     robot_simulator = RobotSimulator(load_model_path="robot_simulator_model.h5")
-    robot_simulator.train_model(data)
+    # robot_simulator.train_model(data)
     print("training RL agent using robot simulator...")
     env = MagwireEnv(robot_simulator)
     train_rl_model(env)
@@ -172,14 +171,4 @@ def create_multidimensional_interpolation_function(points_dict: dict):
     return interpolator
 
 if __name__ == "__main__":
-    '''robot_simulator = RobotSimulator(load_model_path="robot_simulator_model.h5")
-    env = MagwireEnv(robot_simulator)
-    model = PPO.load("ppo_magwire_model.h5")
-    obs, info = env.reset()
-    for _ in range(1000):
-        action, _states = model.predict(obs, deterministic=True)
-        obs, rewards, done, trunc, info = env.step(action)
-        print(info)
-        if done:
-            obs = env.reset()'''
     main()

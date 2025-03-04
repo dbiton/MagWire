@@ -1,7 +1,6 @@
 from stable_baselines3 import PPO
 from magwire_gym_env import MagwireEnv
 from stable_baselines3.common.env_checker import check_env
-from move_silly import get_config, move_waypoint
 
 from robot_interface import RobotInterface
 

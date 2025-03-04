@@ -5,9 +5,7 @@ from time import sleep, time
 from multiprocessing import Process
 from hilbertcurve.hilbertcurve import HilbertCurve
 from matplotlib import animation, pyplot as plt
-# from move_silly import move_waypoints
-from move_silly import get_config, move_waypoints
-from robot_controller import BaseRobot
+from robot_controller import get_config, move_waypoints
 import numpy as np
 import os
 try:

@@ -96,10 +96,10 @@ class MagwireEnv(gym.Env):
             random.uniform(self.actuator_bbox[2], self.actuator_bbox[3]),
             random.uniform(self.actuator_bbox[4], self.actuator_bbox[5]),
         ]
-        movement = position + orientation + [self.velocity, self.acceleration]
-        self.robot_interface.move(movement)
+        waypoint = position + orientation + [self.velocity, self.acceleration]
+        self.robot_interface.move_waypoint(waypoint)
         magwire_pos, robot_config = self.robot_interface.get_config()
-        observation = np.concatenate([magwire_pos, robot_config])
+        observation = np.concatenate([np.array(magwire_pos).flatten(), np.array(robot_config).flatten()])
         info = {
             'target_pos': self.magwire_target_pos,
         }
@@ -130,9 +130,9 @@ class MagwireEnv(gym.Env):
 
         orientation = [0, math.pi, 0]
         movement = position + orientation + [self.velocity, self.acceleration]
-        self.robot_interface.move(movement)
+        self.robot_interface.move_waypoint(movement)
         robot_config, magwire_pos = self.robot_interface.get_config()
-        observation = np.concatenate([magwire_pos, robot_config])
+        observation = np.concatenate([np.array(magwire_pos).flatten(), np.array(robot_config).flatten()])
 
         # Distance to target
         dist = np.linalg.norm(magwire_pos - self.magwire_target_pos)
