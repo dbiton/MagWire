@@ -37,39 +37,42 @@ def is_point_inside_box(point, box):
         return False
 
 class MagwireEnv(gym.Env):
-    def __init__(self, robot_interface: RobotInterface, max_steps=100):
+    def __init__(self, robot_interface: RobotInterface, max_steps=25):
         super(MagwireEnv, self).__init__()
         
         self.robot_interface = robot_interface
         self.max_steps = max_steps
-        self.radius = 25/1000
-        self.velocity = 0.5
-        self.acceleration = 0.2
+        self.radius = 30/1000
+        self.velocity = 2
+        self.acceleration = 1.0
     
         # Bottom 4 corners
-        v000 = (-125/1000,  -565/1000,   310/1000)
-        v100 = (10/1000,    -565/1000,   310/1000)
-        v010 = (10/1000,    -400/1000,   310/1000)
-        v110 = (-125/1000,  -400/1000,   310/1000)
+        v000 = [-200/1000,  -550/1000,   310/1000]
+        v100 = [-50/1000,    -550/1000,   310/1000]
+        v010 = [-50/1000,    -350/1000,   310/1000]
+        v110 = [-200/1000,  -350/1000,   310/1000]
 
         # Top 4 corners
-        v001 = (-125/1000,   -565/1000,   350/1000)
-        v101 = ( 10/1000,     -565/1000,   350/1000)
-        v011 = ( 10/1000,     -400/1000,   350/1000)
-        v111 = (-125/1000,   -400/1000,   350/1000)
+        v001 = [-200/1000,  -550/1000,   310/1000]
+        v101 = [-50/1000,    -550/1000,   310/1000]
+        v011 = [-50/1000,    -350/1000,   310/1000]
+        v111 = [-200/1000,  -350/1000,   310/1000]
 
         corners = [v000, v100, v010, v110, v001, v101, v011, v111]
 
         self.actuator_bbox = create_box(corners)
 
-        self.action_space = gym.spaces.Discrete(7)
+        self.action_space = gym.spaces.Discrete(5)
         
         magwire_position_space = gym.spaces.Box(low=np.array([-2.0, -2.0]), high=np.array([2.0, 2.0]), dtype=np.float64)
         robot_config_space = gym.spaces.Box(low=np.array([-np.pi] * 6), high=np.array([np.pi] * 6), dtype=np.float64)
+        actuator_bbox_mins = [self.actuator_bbox[i] for i in [0,2,4]]
+        actuator_bbox_maxs = [self.actuator_bbox[i] for i in [1,3,5]]
+        actuator_pos_space = gym.spaces.Box(low=np.array(actuator_bbox_mins), high=np.array(actuator_bbox_maxs), dtype=np.float64)
         
         self.observation_space = gym.spaces.Box(
-            low=np.concatenate([magwire_position_space.low, robot_config_space.low]),
-            high=np.concatenate([magwire_position_space.high, robot_config_space.high]),
+            low=np.concatenate([magwire_position_space.low, robot_config_space.low, actuator_pos_space.low]),
+            high=np.concatenate([magwire_position_space.high, robot_config_space.high, actuator_pos_space.high]),
             dtype=np.float64
         )
 
@@ -88,7 +91,10 @@ class MagwireEnv(gym.Env):
         super().reset(seed=seed)  # Initialize RNG with seed
 
         self.steps_taken = 0
+        print("TARGET:", self.magwire_target_pos)
         self.magwire_target_pos = np.random.uniform(low=0.0, high=1.0, size=2).astype(np.float64)
+        self.robot_interface.target[0] = self.magwire_target_pos[0]
+        self.robot_interface.target[1] = self.magwire_target_pos[1]
 
         orientation = [0, math.pi, 0]
         position = [
@@ -96,10 +102,11 @@ class MagwireEnv(gym.Env):
             random.uniform(self.actuator_bbox[2], self.actuator_bbox[3]),
             random.uniform(self.actuator_bbox[4], self.actuator_bbox[5]),
         ]
-        waypoint = position + orientation + [self.velocity, self.acceleration]
-        self.robot_interface.move_waypoint(waypoint)
+        movement = position + orientation + [self.velocity, self.acceleration]
+        self.robot_interface.move_waypoint(movement)
         magwire_pos, robot_config = self.robot_interface.get_config()
-        observation = np.concatenate([np.array(magwire_pos).flatten(), np.array(robot_config).flatten()])
+        actuator_pos = self.robot_interface.get_current_position()
+        observation = np.concatenate([magwire_pos, robot_config, actuator_pos])
         info = {
             'target_pos': self.magwire_target_pos,
         }
@@ -113,13 +120,13 @@ class MagwireEnv(gym.Env):
         """
         
         directions = [
+            [ 0, 0, 0],
             [ 0, 0, 1],
             [ 0, 0,-1],
             [ 0, 1, 0],
             [ 0,-1, 0],
-            [ 1, 0, 0],
-            [-1, 0, 0],
-            [ 0, 0, 0],
+            #[ 1, 0, 0], # DISABLE UP /
+            #[-1, 0, 0], #
         ]
 
         direction = directions[action]
@@ -132,7 +139,8 @@ class MagwireEnv(gym.Env):
         movement = position + orientation + [self.velocity, self.acceleration]
         self.robot_interface.move_waypoint(movement)
         robot_config, magwire_pos = self.robot_interface.get_config()
-        observation = np.concatenate([np.array(magwire_pos).flatten(), np.array(robot_config).flatten()])
+        actuator_pos = self.robot_interface.get_current_position()
+        observation = np.concatenate([magwire_pos, robot_config, actuator_pos])
 
         # Distance to target
         dist = np.linalg.norm(magwire_pos - self.magwire_target_pos)

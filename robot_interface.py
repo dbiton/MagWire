@@ -6,6 +6,7 @@ from ur_simulation.inverse_kinematics import forward_kinematic_solution, DH_matr
 from ur_simulation.kinematics import Transform, UR5e_PARAMS
 from ur_simulation.planners import RRT_CONNECT
 import numpy as np
+
 class RobotInterface:
     def __init__(self):
         self.last_waypoint = None

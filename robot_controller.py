@@ -12,13 +12,14 @@ class RobotController(RobotInterface):
         self.last_waypoint = None
         self.magwire_pos = [0.5, 0.5]
         self.magwire_last_update = None
+        self.target = [0.5, 0.5]
         self.fp_thread = threading.Thread(target=self._thread_update_wire_pos)
         self.fp_thread.daemon = True
         self.fp_thread.start()
 
     def _thread_update_wire_pos(self):
         fp = FootageParser()
-        for pos, t in fp.parse_video("frames", True, True, True):
+        for pos, t in fp.parse_video("frames", True, True, True, self.target):
             self.magwire_pos = pos
             self.magwire_last_update = t
     
@@ -33,6 +34,7 @@ class RobotController(RobotInterface):
         self.robot.movel(pose, vel=velocity, acc=acceleration)
         while self.robot.is_program_running():
             sleep(0.01)
+        self.last_waypoint = waypoint
 
     def move_waypoints(self, waypoints: list):
         for waypoint in waypoints:

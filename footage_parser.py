@@ -45,8 +45,8 @@ class FootageParser:
 
         # Define the range of red color in HSV
         
-        lower_yellow = np.array([160, 80, 80])
-        upper_yellow = np.array([180, 255, 255])
+        lower_yellow = np.array([0, 100, 100])
+        upper_yellow = np.array([30, 255, 255])
 
         # Create a mask for red color
         mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
@@ -117,6 +117,49 @@ class FootageParser:
             return [pred_x, pred_y]
         return None
     
+    def map_normalized_to_screen_space(self, rect_corners, point):
+        p1, p2, p3, p4 = rect_corners
+        x1, y1 = p1[0]
+        x2, y2 = p2[0]
+        x3, y3 = p3[0]
+        x4, y4 = p4[0]
+        src = np.array([[x1, y1],
+                        [x2, y2],
+                        [x3, y3],
+                        [x4, y4]])
+        dst = np.array([[0, 1],
+                        [1, 1],
+                        [1, 0],
+                        [0, 0]])
+        A = []
+        B = []
+        for (sx, sy), (dx, dy) in zip(src, dst):
+            A.append([sx, sy, 1, 0, 0, 0, -dx * sx, -dx * sy])
+            B.append(dx)
+            A.append([0, 0, 0, sx, sy, 1, -dy * sx, -dy * sy])
+            B.append(dy)
+        A = np.array(A)
+        B = np.array(B)
+        h = np.linalg.lstsq(A, B, rcond=None)[0]
+        H = np.append(h, 1).reshape(3, 3)
+        H_inv = np.linalg.inv(H)
+        u, v = point  # point in normalized space
+        mapped = np.dot(H_inv, np.array([u, v, 1]))
+        x, y = mapped[0] / mapped[2], mapped[1] / mapped[2]
+        return x, y
+
+    def grid_space_to_screenspace(self, corners, grid_coord):
+        if len(corners) == 4 and grid_coord:
+            points = np.array([[x, y] for x, y, _ in corners])
+            centroid = np.mean(points, axis=0)
+            angles = np.arctan2(points[:, 1] - centroid[1], points[:, 0] - centroid[0])
+            sorted_points = points[np.argsort(angles)]
+            sorted_points = sorted_points.reshape((-1, 1, 2))
+            norm_coord = (grid_coord[0], 1 - grid_coord[1])
+            x, y = self.map_normalized_to_screen_space(sorted_points, norm_coord)
+            return [x, y]
+        return None
+
     def get_capture_device(self):
         for i in range(10):
             try:
@@ -192,37 +235,45 @@ class FootageParser:
                         cv2.LINE_AA                   # Line type
                     )
                 if target:
-                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    target_screenspace = (int(target[0]*width), int(target[1]*height))
-                    radius = 10
-                    color = (0, 0, 255)
-                    thickness = -1
-                    cv2.circle(frame, target_screenspace, radius, color, thickness)
-                    cv2.putText(
-                        frame,                        # Frame
-                        f"TARGET:{float(round(target[0], 2)), float(round(target[1], 2))}",
-                        (10, 150),                    # Position (x, y)
-                        cv2.FONT_HERSHEY_SIMPLEX,     # Font
-                        1,                            # Font scale
-                        (0, 0, 255),                  # Color (BGR - green)
-                        2,                            # Thickness
-                        cv2.LINE_AA                   # Line type
-                    )
-                    if pos:
-                        distance = np.linalg.norm(np.array(target)-np.array(pos))
+                    target_screenspace = self.grid_space_to_screenspace(corners, target)
+                    if target_screenspace:
+                        target_screenspace = [int(v) for v in target_screenspace]
+                        radius = 10
+                        color = (0, 0, 255)
+                        thickness = -1
+                        cv2.circle(frame, target_screenspace, radius, color, thickness)
                         cv2.putText(
                             frame,                        # Frame
-                            f"DELTA:{float(round(distance, 4))}",
-                            (10, 200),                    # Position (x, y)
+                            f"TARGET:{float(round(target[0], 2)), float(round(target[1], 2))}",
+                            (10, 150),                    # Position (x, y)
                             cv2.FONT_HERSHEY_SIMPLEX,     # Font
                             1,                            # Font scale
                             (0, 0, 255),                  # Color (BGR - green)
                             2,                            # Thickness
                             cv2.LINE_AA                   # Line type
                         )
+                        if pos:
+                            distance = np.linalg.norm(np.array(target)-np.array(pos))
+                            cv2.putText(
+                                frame,                        # Frame
+                                f"DELTA:{float(round(distance, 4))}",
+                                (10, 200),                    # Position (x, y)
+                                cv2.FONT_HERSHEY_SIMPLEX,     # Font
+                                1,                            # Font scale
+                                (0, 0, 255),                  # Color (BGR - green)
+                                2,                            # Thickness
+                                cv2.LINE_AA                   # Line type
+                            )
                 cv2.imshow('Footage', frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
         cap.release()
         cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    fp = FootageParser()
+    target = [0, 0]
+    for pos, t in fp.parse_video("frames", True, True, False, target):
+        print(t, pos)
+        target[0] = np.sin(t)
+        target[1] = np.cos(t)
