@@ -9,4 +9,4 @@ def process_frames(frames_dir, output_file):
         json.dump(frames_times, f)
 
 if __name__=="__main__":
-    process_frames("C:\\Users\\User\\Desktop\\frames", "output.mp4")
+    process_frames("frames", "output.mp4")

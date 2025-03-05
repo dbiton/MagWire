@@ -3,6 +3,7 @@ from time import sleep
 import urx
 from robot_interface import RobotInterface
 from footage_parser import FootageParser
+
 class RobotController(RobotInterface):
     def __init__(self):
         self.robot = urx.Robot("192.168.0.11")
@@ -17,7 +18,7 @@ class RobotController(RobotInterface):
 
     def _thread_update_wire_pos(self):
         fp = FootageParser()
-        for pos, t in fp.parse_video("frames", True, True):
+        for pos, t in fp.parse_video("frames", True, True, True):
             self.magwire_pos = pos
             self.magwire_last_update = t
     

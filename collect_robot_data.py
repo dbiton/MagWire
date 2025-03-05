@@ -5,7 +5,7 @@ from time import sleep, time
 from multiprocessing import Process
 from hilbertcurve.hilbertcurve import HilbertCurve
 from matplotlib import animation, pyplot as plt
-from robot_controller import get_config, move_waypoints
+from robot_controller import RobotController
 import numpy as np
 import os
 try:
@@ -16,6 +16,8 @@ except ImportError:
 else:
     def playsound(frequency,duration):
         winsound.Beep(frequency,duration)
+
+r = RobotController()
 
 def hilbert_curve_3D(order):
     dimension = 3
@@ -67,33 +69,28 @@ def to_rad(p):
 def log_data():
     with open("robot_pos.txt", "w") as f:
         while True:
-            res = {"time": time(), "pos": get_config()}
+            res = {"time": time(), "pos": r.get_config()}
             sleep(1 / 100)
             json.dump(res, f)
 
 from footage_parser import FootageParser
-
-def save_footage():
-    fp = FootageParser()
-    fp.parse_video("frames", True, True)
+    
 
 if __name__ == "__main__":
-    process = Process(target=log_data)
-    process_video = Process(target=save_footage)
-    process_video.start()
-    process.start()
+    process_robot = Process(target=log_data)
+    process_robot.start()
 
     # Bottom 4 corners
-    v000 = (-700/1000,   0/1000,   -40.0/1000)
-    v100 = (-900/1000,   0/1000,   -40.0/1000)
-    v010 = (-900/1000,   200/1000,   -40.0/1000)
-    v110 = (-700/1000,   200/1000,   -40.0/1000)
+    v000 = (-700/1000,   0/1000,   40.0/1000)
+    v100 = (-900/1000,   0/1000,   40.0/1000)
+    v010 = (-900/1000,   200/1000,   40.0/1000)
+    v110 = (-700/1000,   200/1000,   40.0/1000)
 
     # Top 4 corners
-    v001 = (-700/1000,   0/1000,   30/1000)
-    v101 = (-900/1000,   0/1000,   30/1000)
-    v011 = (-900/1000,   200/1000,   30/1000)
-    v111 = (-700/1000,   200/1000,   30/1000)
+    v001 = (-700/1000,   0/1000,   40/1000)
+    v101 = (-900/1000,   0/1000,   40/1000)
+    v011 = (-900/1000,   200/1000,   40/1000)
+    v111 = (-700/1000,   200/1000,   40/1000)
 
     corners = [v000, v100, v010, v110, v001, v101, v011, v111]
     
@@ -115,7 +112,7 @@ if __name__ == "__main__":
           waypoint = list(curve_point) + orientation + [velocity, acceleration]
           waypoints.append(waypoint)
 
-        move_waypoints(waypoints)
+        r.move_waypoints(waypoints)
         
         frequency = 432
         sleep(10)

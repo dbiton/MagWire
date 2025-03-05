@@ -14,7 +14,7 @@ class FootageParser:
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         # Define the range of blue color in HSV
-        lower_green = np.array([35, 70, 40])
+        lower_green = np.array([35, 50, 50])
         upper_green = np.array([85, 255, 255])
         
         # Create a mask for blue color
@@ -45,8 +45,8 @@ class FootageParser:
 
         # Define the range of red color in HSV
         
-        lower_yellow = np.array([0, 80, 80])
-        upper_yellow = np.array([40, 255, 255])
+        lower_yellow = np.array([160, 80, 80])
+        upper_yellow = np.array([180, 255, 255])
 
         # Create a mask for red color
         mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
@@ -121,6 +121,9 @@ class FootageParser:
         for i in range(10):
             try:
                 cap = cv2.VideoCapture(i)
+                if not cap.isOpened():
+                    cap.release()
+                    continue
                 print(f"Found capture device {i}")
                 return cap
             except:
@@ -138,10 +141,10 @@ class FootageParser:
         total_time = 0
         while True:
             ret, frame = cap.read()
+            if not ret:
+                continue
             if save_output:
                 cv2.imwrite(f"{video_path}/{time()}.png", frame)
-            if not ret:
-                break
             wire_end = self.detect_wire(frame)
             corners = self.detect_corners(frame)
             pos = self.wire_screenspace_to_gridspace(corners, wire_end)
