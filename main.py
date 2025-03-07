@@ -10,12 +10,19 @@ from magwire_gym_env import MagwireEnv
 from robot_simulator import RobotSimulator
 
 
-def load_robot_pos(filepath: str, offset=0):
-    with open(filepath, "r") as f:
-        data = json.load(f)
-    data = {e["time"]: np.array(e["pos"]) for e in data}
-    start_time = min(data.keys()) + offset
-    data = {k-start_time: v for (k,v) in data.items()}
+def load_data(filepath: str):
+    data = {
+        "time": [],
+        "robot": [],
+        "wire": []
+    }
+    with open(filepath) as f:
+        for line in f:
+            v = json.loads(line)
+            data["time"].append(v["time"])
+            data["robot"].append(v["pos"][0])
+            data["wire"].append(v["pos"][1])
+    data = pd.DataFrame(data)
     return data
 
 def load_magwire_pos(video_path: str):
@@ -123,33 +130,11 @@ def train_rl_model(env: MagwireEnv):
             obs = env.reset()
 
 def main():
-    print("loading robot position...")
-    robot_pos = load_robot_pos('data\\28.11.24\\robot_pos.json', -10.536)
-    print("loading wire position...")
-    wire_pos = load_magwire_pos('data\\28.11.24\\robot_footage.mp4')
-    wire_pos = {v[1]: v[0] for v in wire_pos}
-    print("creating positions interpolations...")
-    t_start = max(min(wire_pos.keys()), min(robot_pos.keys()))
-    t_end = min(max(wire_pos.keys()), max(robot_pos.keys()))
-    dt_wire = np.diff(list(wire_pos.keys()), axis=0)
-    dt_robot = np.diff(list(robot_pos.keys()), axis=0)
-    t_step = min(np.mean(dt_robot), np.mean(dt_wire))
-    wire_pos = create_multidimensional_interpolation_function(wire_pos)
-    robot_pos = create_multidimensional_interpolation_function(robot_pos)
-    print("creating training data...")
-    data = {
-        "time": [],
-        "robot": [],
-        "wire": []
-    }
-    for t_curr in np.arange(t_start, t_end, t_step):
-        data["time"].append(t_curr)
-        data["robot"].append(robot_pos(t_curr))
-        data["wire"].append(wire_pos(t_curr))
-    data = pd.DataFrame(data)
+    print("loading data...")
+    data = load_data('data\\2.03.25\\pos.txt')
     print("training robot simulator...")
-    robot_simulator = RobotSimulator(load_model_path="robot_simulator_model.h5")
-    # robot_simulator.train_model(data)
+    robot_simulator = RobotSimulator(save_model_path="robot_simulator_model.h5")
+    robot_simulator.train_model(data)
     print("training RL agent using robot simulator...")
     env = MagwireEnv(robot_simulator)
     train_rl_model(env)
