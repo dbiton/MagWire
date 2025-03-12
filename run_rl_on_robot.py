@@ -1,59 +1,56 @@
 import json
-from multiprocessing import Process
-from threading import Thread
 from time import sleep, time
+import warnings
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from magwire_gym_env import MagwireEnv
 from stable_baselines3.common.env_checker import check_env
-from robot_controller import RobotController
-import warnings
+from stable_baselines3.common.vec_env import SubprocVecEnv
+from magwire_gym_env import MagwireEnv
+from robot_simulator import RobotSimulator
+from stable_baselines3.common.evaluation import evaluate_policy
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-r = RobotController()
 
-def log_data():
-    with open("robot_posMar5.txt", "a") as f:
-        while True:
-            res = {"time": time(), "pos": r.get_config()}
-            sleep(1 / 100)
-            json.dump(res, f)
+# Function to create a new instance of the environment with its own simulator
+def make_env():
+    def _init():
+        # Create a new simulator instance for each environment
+        r = RobotSimulator(load_model_path="robot_simulator_model.h5")
+        env = MagwireEnv(r)
+        env = Monitor(env)
+        return env
+    return _init
 
 def train_rl_model():
-    '''
-    v000 = [-200/1000,  -550/1000,   310/1000]
-    v100 = [-50/1000,    -550/1000,   310/1000]
-    v010 = [-50/1000,    -350/1000,   310/1000]
-    v110 = [-200/1000,  -350/1000,   310/1000]
-    ps = [v000, v100, v010, v110]
-    orientation = [0, 3.141, 0]
-    velocity, acceleration = 1.0, 0.2
-    while True:
-        mvs = [p + orientation + [velocity, acceleration] for p in ps]
-        r.move_waypoints(mvs)
-'''
-    process_robot = Thread(target=log_data)
-    process_robot.start()
-
-    env = MagwireEnv(r)
-    env = Monitor(env)
-    check_env(env, warn=True)
-    timesteps_per_save = 1024
-    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./ppo_magwire/", n_steps=min(512, timesteps_per_save))
-    total_timesteps = 100000
+    num_envs = 10  # Set the number of parallel environments
+    env = SubprocVecEnv([make_env() for _ in range(num_envs)])
+    # Check the first environment for issues
+    # check_env(env.envs[0], warn=True)
+    
+    # Adjust n_steps if necessary (n_steps is per environment; overall batch size becomes num_envs * n_steps)
+    n_steps = 512
+    timesteps_per_save = n_steps * num_envs
+    model = PPO("MlpPolicy", env, verbose=2, tensorboard_log="./ppo_magwire/", n_steps=n_steps)
+    total_timesteps = 1000000
+    
     for i in range(0, total_timesteps, timesteps_per_save):
         print("Iteration", i)
         model.learn(total_timesteps=timesteps_per_save, progress_bar=True)
         model.save("ppo_magwire_model")
         model = PPO.load("ppo_magwire_model")
         model.set_env(env)
-    env = MagwireEnv(r)
-    obs, info = env.reset()
+    
+    # Demonstration loop: run the trained model in one of the vectorized environments
+    obs = env.reset()
     for _ in range(1000):
         action, _states = model.predict(obs, deterministic=True)
-        obs, rewards, done, trunc, info = env.step(action)
-        if done:
+        obs, rewards, dones, infos = env.step(action)
+        if any(dones):  # if any of the environments is done, reset them
             obs = env.reset()
 
 if __name__=="__main__":
-    train_rl_model()
+    env = SubprocVecEnv([make_env() for _ in range(10)])
+    model = PPO.load("ppo_magwire_model")
+    model.set_env(env)
+    mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=10, deterministic=True)
+    print(f"Evaluation results: Mean reward = {mean_reward:.2f} +/- {std_reward:.2f}")

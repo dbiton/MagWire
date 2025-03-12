@@ -31,15 +31,16 @@ class RobotSimulator(RobotInterface):
         if load_model_path:
             print("loading model from", load_model_path)
             self.model = load_model(load_model_path)
-        self.magwire_pos = np.array([0.5, 0.5])
-        self.robot_config = np.array([
+        self.magwire_pos = [0.5, 0.5]
+        self.robot_config = [
             -1.6397998968707483,
             -1.5479772009751578,
             -1.6689372062683105,
             -1.50113898635421,
             1.5396380424499512,
             2.2953386306762695
-        ])
+        ]
+        self.target = [0.5, 0.5] 
     
     def build_model(self, input_shape: Tuple[int, int], output_length: int, hidden_units: int) -> None:
         self.model = models.Sequential([
@@ -50,7 +51,7 @@ class RobotSimulator(RobotInterface):
         self.model.compile(optimizer='adam', loss=MeanSquaredError())
         
     def get_config(self):
-        return self.magwire_pos, self.robot_config
+        return self.robot_config, self.magwire_pos
     
     def move_waypoint(self, waypoint):
         curr_robot_config = self.robot_config
@@ -60,8 +61,6 @@ class RobotSimulator(RobotInterface):
             return self.magwire_pos
         next_robot_config = next_robot_configs[:,0]
         input_shape = self.model.input_shape
-        frames_count = input_shape[1]
-        
         data = {
             "time": [],
             "robot": [],
@@ -69,19 +68,19 @@ class RobotSimulator(RobotInterface):
         }
         seconds_past = 1
         seconds_future = 1
-        for t_curr in np.arange(-seconds_past, 0, 1/30):
+        for t_curr in np.arange(-seconds_past, 0, 1/100):
             data["time"].append(t_curr)
             data["robot"].append(curr_robot_config)
             data["wire"].append(self.magwire_pos)
-        for t_curr in np.arange(0, seconds_future, 1/30):
+        for t_curr in np.arange(0, seconds_future, 1/100):
             data["time"].append(t_curr)
             data["robot"].append(next_robot_config)
             data["wire"].append(None)
         data = pd.DataFrame(data)
         X_move = self.process_features(data)
-        y_move = self.model.predict(X_move)
-        self.magwire_pos = y_move[0][-2:]
-        self.robot_config = next_robot_config
+        y_move = self.model.predict(X_move, verbose=0)
+        self.magwire_pos = list(y_move[0][-2:])
+        self.robot_config = next_robot_config.flatten().tolist()[0]
         self.last_waypoint = waypoint
         return self.magwire_pos
     
@@ -101,13 +100,13 @@ class RobotSimulator(RobotInterface):
         frames_count_past = int(seconds_past / mean_dt)
         frames_count_future = int(seconds_future / mean_dt)
         X = []
-        for i_frame in range(frames_count_past, len(data) - frames_count_future + 1):
+        for i_frame in range(frames_count_past, len(data) - frames_count_future + 1, frames_count_past):
             frames_past = data[i_frame - frames_count_past:i_frame]
             frames_future = data[i_frame:i_frame + frames_count_future].copy()
             frames_future['wire'] = [np.array([0, 0]) for _ in range(len(frames_future))]
             features = np.concatenate((frames_past.to_numpy(), frames_future.to_numpy()))
             features = [np.concatenate([np.array(v).flatten() for v in f]) for f in features]
-            X.append(features)        
+            X.append(features)
         return np.array(X)
     
     def process_labels(self, data:dict):
@@ -117,7 +116,7 @@ class RobotSimulator(RobotInterface):
         frames_count_past = int(seconds_past / mean_dt)
         frames_count_future = int(seconds_future / mean_dt)
         y = []
-        for i_frame in range(frames_count_past, len(data) - frames_count_future):
+        for i_frame in range(frames_count_past, len(data) - frames_count_future + 1, frames_count_past):
             frames_future = data[i_frame:i_frame + frames_count_future].copy()
             magwire_pos_future = np.stack(frames_future["wire"].to_numpy()).flatten()
             y.append(magwire_pos_future)
@@ -139,12 +138,12 @@ class RobotSimulator(RobotInterface):
             hidden_units = 64
             self.build_model(input_shape, output_length, hidden_units)
 
-        self.model.fit(X_train, y_train, epochs=4, batch_size=32, validation_split=0.1)
+        self.model.fit(X_train, y_train, epochs=64, batch_size=64, validation_split=0.1)
 
         if self.save_model_path:
             self.model.save(self.save_model_path)
         
         # Evaluate the model
-        y_pred = self.model.predict(X_test)
+        y_pred = self.model.predict(X_test, verbose=0)
         mse = mean_squared_error(y_test, y_pred)
         print(f"Mean Squared Error on Test Data: {mse:.4f}")

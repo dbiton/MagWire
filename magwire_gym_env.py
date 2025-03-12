@@ -91,7 +91,6 @@ class MagwireEnv(gym.Env):
         super().reset(seed=seed)  # Initialize RNG with seed
 
         self.steps_taken = 0
-        print("TARGET:", self.magwire_target_pos)
         self.magwire_target_pos = np.random.uniform(low=0.0, high=1.0, size=2).astype(np.float64)
         self.robot_interface.target[0] = self.magwire_target_pos[0]
         self.robot_interface.target[1] = self.magwire_target_pos[1]
@@ -104,7 +103,7 @@ class MagwireEnv(gym.Env):
         ]
         movement = position + orientation + [self.velocity, self.acceleration]
         self.robot_interface.move_waypoint(movement)
-        magwire_pos, robot_config = self.robot_interface.get_config()
+        robot_config, magwire_pos = self.robot_interface.get_config()
         actuator_pos = self.robot_interface.get_current_position()
         observation = np.concatenate([magwire_pos, robot_config, actuator_pos])
         info = {
